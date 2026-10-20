@@ -1,0 +1,13 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_binary")
+
+go_binary(
+    name = "bazel-diff2",
+    srcs = ["main.go"],
+    # No cgo, so the binary copies into any CI image.
+    pure = "on",
+    visibility = ["//visibility:public"],
+    deps = ["//internal/cli"],
+)

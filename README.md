@@ -1,0 +1,195 @@
+# bazel-diff2
+
+bazel-diff2 works out which Bazel targets a change affects, so CI builds and
+tests those instead of `//...`. It works on one pull request or on several
+merged together, and it is built for a Harness pipeline. The approach follows
+[Tinder's bazel-diff](https://github.com/Tinder/bazel-diff): hash every
+target at the base and head revisions, then compare the hashes.
+
+Requirements: Bazel 8.4+ with bzlmod (WORKSPACE is not supported), git, and a
+Linux or macOS CI agent.
+
+## How it works
+
+1. **Query.** Run `bazel query 'deps(//...:all-targets)' --output=streamed_proto
+   --consistent_labels --noproto:flatten_selects`. This returns every target
+   in the repository and everything those targets depend on, external
+   repositories included.
+2. **Hash.** Give every target two hashes:
+   - **Self** covers the target's own definition:
+     - a rule's class, its attributes (including the full `select()`
+       structure), its input labels, and the hash of the `.bzl` code that
+       defines its rule class;
+     - a source file's git blob ID;
+     - a generated file's generating rule.
+   - **Hash** covers Self plus the Hash of every dependency.
+
+   Source locations and `generator_location` are left out, so moving a rule
+   within its BUILD file changes nothing.
+3. **External repositories** get an identity from evidence Bazel leaves in its
+   output base. Their files are never read:
+   - A repository in the repo contents cache is identified by its
+     predeclared-input hash plus its recorded inputs.
+   - A fetched repository is identified by its marker file.
+   - `bazel_tools` is identified by the install base, which changes with the
+     Bazel binary.
+   - Local repositories, such as `local_path_override` modules, are the
+     exception: their files are hashed from disk.
+
+   Bumping a module version, or a `go.mod` entry that a module extension turns
+   into a repository, changes only the targets that use that repository.
+4. **Compare.** A target is impacted when its Hash differs from base, or when
+   it is new. A breadth-first walk records each impacted target's distance
+   from the change that caused it, which `explain` and `--max-test-distance`
+   use.
+5. **Seed files** affect everything in ways the target graph does not show.
+   They are `.bazelversion`, `.bazelrc` (and any `*.bazelrc` or
+   `.bazelrc.*`), `MODULE.bazel`, `*.MODULE.bazel`, `tools/bazel`, and the
+   Bazel release. A change to any of them is a full build.
+
+   `MODULE.bazel` is a seed because it registers toolchains, and `bazel query`
+   cannot see toolchain resolution.
+6. **Select.** Keep main-repository rules and drop:
+   - files;
+   - external targets;
+   - `test_suite` targets, because their impacted members are already listed;
+   - `manual` targets. Bazel builds a `manual` target whenever it is named
+     explicitly, so they have to be dropped here.
+
+   Apply the pipeline's tag filters, then split what's left into build targets
+   and test targets.
+
+### Base snapshots come from a cache
+
+A pipeline on `main` hashes every commit and uploads the snapshot, keyed by
+commit and settings fingerprint, to a directory, `gs://` or `s3://`. A pull
+request pipeline then needs only one `bazel query`, for its own head. On a
+cache miss the base is hashed in a git worktree that persists between runs,
+so its Bazel server stays warm.
+
+## Building
+
+```bash
+bazel build //...
+bazel test //...
+bazel run //cmd/bazel-diff2 -- version
+```
+
+The binary is `//cmd/bazel-diff2`. Copy it into the CI image (it is a static
+Go binary) or onto `PATH`.
+
+## Commands
+
+| Command | Use |
+|---|---|
+| `impacted --base <rev> [--head <rev>]` | Select targets for one change. Head defaults to the working tree as it is on disk, and base is the merge base of the two revisions. This is the usual CI entry point. |
+| `queue --base <rev> --pr <rev> [--pr ...] [--per-pr]` | Merge the PRs into base in a worktree (an octopus merge) and select targets for the result. `--per-pr` also hashes each PR on its own and writes `attribution.json`, which maps each selected target to the PRs that cause it. Targets only the combination causes are listed as `(combination)`. |
+| `hash [--rev <rev>] [--cache <url> --upload]` | Write a snapshot, and with `--upload` fill the cache. Run this on every commit to `main`. |
+| `diff --base <file> --head <file>` | Select targets from two snapshot files. |
+| `explain --target <label>` | Show the dependency chain from a selected target to the change that selected it. Reads the snapshots that `impacted` saves in its output directory. |
+| `verify --bep <file>` | Shadow mode: compare a full run's failures with the selection. See "Rollout". |
+
+Useful flags (run `bazel-diff2 <command> -h` for all of them):
+
+- `--cache <url>`: where snapshots are cached. Add `--upload` to write as
+  well as read.
+- `--build-tag-filters`, `--test-tag-filters`: use the same values the
+  pipeline passes to Bazel.
+- `--fast-path <glob>` (repeatable): changed files that can be skipped without
+  querying head, such as `**/*.md`. A file is skipped only if all of these are
+  true:
+  - it was modified, not added or deleted;
+  - it is not a BUILD file, a `.bzl` file or a seed;
+  - it is not a source target at base.
+
+  **Never list files that a module extension reads**, such as `go.mod` or
+  lock files.
+- `--max-test-distance <n>`: defers tests more than `n` dependency edges from
+  the change into `deferred_test_targets.txt`.
+- `--parallel`: on a cache miss, hash base and head at the same time. This
+  runs two Bazel servers, so it needs about twice the memory.
+- `--query-flag`, `--startup-flag`, `--seed`, `--repo-marker-ignore=ENV:`:
+  change how snapshots are made. They are part of the fingerprint, so base and
+  head must use the same values. Use `--repo-marker-ignore=ENV:` only if CI
+  agents differ in environment variables that a toolchain repository records.
+
+### Output files
+
+`impacted`, `queue` and `diff` write these files to `--out-dir` (default
+`bazel-diff2-out`):
+
+| File | Content |
+|---|---|
+| `build_targets.txt` | Non-test rules, one per line, for `bazel build --target_pattern_file=...`. |
+| `test_targets.txt` | Test rules, for `bazel test --target_pattern_file=...`. |
+| `deferred_test_targets.txt` | Tests beyond `--max-test-distance`. |
+| `outputs.env` | `FULL_BUILD`, `BUILD_COUNT`, `TEST_COUNT`, `DEFERRED_TEST_COUNT`, `IMPACTED_COUNT`, `BASE_COMMIT` and `HEAD_COMMIT`, as shell `KEY=value` lines. |
+| `summary.json` | The counts, the reasons for a full build, whether the fast path ran, and how long the run took. |
+| `impacted.json` | Every impacted target, with its kind, whether it changed directly, its distance, and its cause. |
+| `base.json.gz`, `head.json.gz` | The two snapshots, for `explain` and for debugging. |
+
+On a full build, both target files contain `//...` and `FULL_BUILD=true`.
+
+## Harness
+
+`ci/harness/` holds templates. Replace the `<...>` placeholders before use.
+
+- `select-targets.sh` runs bazel-diff2 and **never fails the step**. If the
+  tool errors, is missing, or cannot fetch the base, the script writes a
+  full-build selection, so a tool problem costs time, not coverage.
+  - It reads `BASE_REF`, `SNAPSHOT_CACHE` and `BAZEL_DIFF2_ARGS` from the
+    environment.
+  - If `PR_REFS` is set, it runs `queue` mode instead.
+- `pr-pipeline.yaml` runs the select step and exports `outputs.env` as output
+  variables. The build and test steps then run with
+  `--skip_incompatible_explicit_targets`, each only when its count is
+  non-zero. Without that flag, an incompatible target named explicitly is an
+  error.
+- `post-merge-pipeline.yaml` hashes each commit on `main` into the cache. Pair
+  it with a nightly full `bazel test //...`.
+
+Clone with full history (`depth: 0`), or at least deep enough to reach the
+merge base. Base and head snapshots must come from the same CI image. Toolchain
+configuration repositories record environment details such as compiler paths,
+so a snapshot from a different image looks like a toolchain change.
+
+## Rollout
+
+1. **Shadow mode.** Set the pipeline variable `shadow_mode=true`. Each PR
+   still runs `bazel test //...` with a build event file. `bazel-diff2 verify`
+   then writes `verify.json`, which lists every failing test or target the
+   selection left out. Any miss is a bug to fix before going further. The
+   other numbers in `verify.json` measure how much is saved.
+2. **Enable.** Turn shadow mode off, and keep the nightly full build.
+3. **Merge queue.** Use `queue` (set `PR_REFS`) for batched merges, with
+   `--per-pr` to find the PR to evict when a batch fails.
+4. **Tiering (optional).** Use `--max-test-distance` to run close tests before
+   merge and deferred ones after. Do this only if the shadow-mode data shows
+   that distant failures are rare.
+
+## Limits
+
+- **Undeclared inputs.** Tests that read files they don't declare, or that use
+  the network, are invisible. The nightly full build catches them.
+- **Toolchains.** Registration lives in `MODULE.bazel`, which is a seed. A
+  change inside a toolchain repository is invisible unless some target depends
+  on that repository directly.
+- **Missing BUILD files.** A package that fails to load fails the run, unless
+  `--keep-going` is set, which is not recommended: a target missing from the
+  result looks deleted. The wrapper then falls back to a full build, which
+  shows the real error.
+- **`select()`.** Selections are configuration-agnostic: every branch counts,
+  so the tool over-selects but never misses because of a `select()`.
+
+## Development
+
+```bash
+bazel test //...                       # unit tests (in <package>/test/)
+BAZEL_DIFF2_E2E=1 go test ./e2e/...    # end-to-end, runs real `bazel query`
+tools/regen_proto.sh                   # after updating internal/buildpb/build.proto
+bazel run //:gazelle                   # after adding files or imports
+```
+
+`internal/buildpb/build.proto` is vendored from Bazel 8.4.2, without its
+stardoc import. The generated `build.pb.go` is checked in, so building the
+tool needs no protoc toolchain.

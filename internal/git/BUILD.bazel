@@ -1,0 +1,15 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "git",
+    srcs = [
+        "files.go",
+        "git.go",
+    ],
+    importpath = "github.com/bjornleffler/bazel-diff2/internal/git",
+    visibility = ["//:__subpackages__"],
+    deps = [],
+)

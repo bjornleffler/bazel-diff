@@ -1,0 +1,6 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+common --enable_bzlmod
+build --incompatible_strict_action_env
+test --test_output=errors

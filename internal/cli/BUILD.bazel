@@ -1,0 +1,30 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "cli",
+    srcs = [
+        "cli.go",
+        "commands.go",
+        "impacted.go",
+        "queue.go",
+        "snapshots.go",
+    ],
+    importpath = "github.com/bjornleffler/bazel-diff2/internal/cli",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/bep",
+        "//internal/cache",
+        "//internal/classify",
+        "//internal/diff",
+        "//internal/fastpath",
+        "//internal/git",
+        "//internal/glob",
+        "//internal/label",
+        "//internal/report",
+        "//internal/snapshot",
+        "//internal/workspace",
+    ],
+)

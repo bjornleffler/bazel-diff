@@ -1,0 +1,15 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "test_test",
+    srcs = ["hasher_test.go"],
+    deps = [
+        "//internal/buildpb",
+        "//internal/hasher",
+        "//internal/snapshot",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

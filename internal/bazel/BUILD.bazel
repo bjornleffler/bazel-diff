@@ -1,0 +1,15 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "bazel",
+    srcs = ["bazel.go"],
+    importpath = "github.com/bjornleffler/bazel-diff2/internal/bazel",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/buildpb",
+        "@org_golang_google_protobuf//encoding/protodelim",
+    ],
+)

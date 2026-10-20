@@ -1,0 +1,20 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "workspace",
+    srcs = ["workspace.go"],
+    importpath = "github.com/bjornleffler/bazel-diff2/internal/workspace",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/bazel",
+        "//internal/buildpb",
+        "//internal/git",
+        "//internal/glob",
+        "//internal/hasher",
+        "//internal/repos",
+        "//internal/snapshot",
+    ],
+)

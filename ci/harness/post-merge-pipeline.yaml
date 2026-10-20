@@ -1,0 +1,44 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+#
+# Template Harness CI pipeline for every push to the main branch. It stores
+# the snapshot of the new commit in the cache, so pull request pipelines read
+# their base from the cache instead of querying Bazel for it. Run it from a
+# push trigger on main, and the full build from a nightly cron trigger as the
+# safety net for anything selection cannot see (see README.md, "Limits").
+pipeline:
+  name: bazel-post-merge
+  identifier: bazel_post_merge
+  orgIdentifier: <org>
+  projectIdentifier: <project>
+  properties:
+    ci:
+      codebase:
+        connectorRef: <git_connector>
+        repoName: <repo>
+        build: <+input>
+  stages:
+    - stage:
+        name: Snapshot
+        identifier: snapshot
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Hash and upload
+                  identifier: hash_and_upload
+                  spec:
+                    shell: Bash
+                    # Hashes the clean checkout in place, which keeps this agent's
+                    # Bazel server warm; a dirty tree is never uploaded.
+                    command: |
+                      bazel-diff2 hash --cache <snapshot_cache_url> --upload --out snapshot.json.gz

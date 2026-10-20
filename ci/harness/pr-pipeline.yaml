@@ -1,0 +1,110 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+#
+# Template Harness CI pipeline for pull requests: select the impacted targets,
+# then build and test only those. Replace every <...> placeholder, and adjust
+# platform/runtime to your infrastructure. See README.md, "Harness".
+#
+# The image must contain bazelisk (as `bazel`), git and bazel-diff2. The
+# snapshot cache is filled by post-merge-pipeline.yaml.
+pipeline:
+  name: bazel-pr
+  identifier: bazel_pr
+  orgIdentifier: <org>
+  projectIdentifier: <project>
+  properties:
+    ci:
+      codebase:
+        connectorRef: <git_connector>
+        repoName: <repo>
+        # Full history, so the merge base with the target branch exists.
+        depth: 0
+        build: <+input>
+  variables:
+    # Set to true for the shadow-mode rollout stage: also run everything and
+    # report failures the selection would have missed.
+    - name: shadow_mode
+      type: String
+      value: "false"
+  stages:
+    - stage:
+        name: Build and test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Select targets
+                  identifier: select_targets
+                  spec:
+                    shell: Bash
+                    envVariables:
+                      BASE_REF: origin/<+codebase.targetBranch>
+                      SNAPSHOT_CACHE: <snapshot_cache_url>
+                      # Pass the same tag filters to bazel-diff2 as to Bazel.
+                      BAZEL_DIFF2_ARGS: --fast-path=**/*.md --fast-path=docs/**
+                    command: |
+                      ci/harness/select-targets.sh
+                      set -a; . bazel-diff2-out/outputs.env; set +a
+                    outputVariables:
+                      - name: FULL_BUILD
+                      - name: BUILD_COUNT
+                      - name: TEST_COUNT
+                      - name: IMPACTED_COUNT
+              - step:
+                  type: Run
+                  name: Build
+                  identifier: build
+                  spec:
+                    shell: Bash
+                    command: |
+                      bazel build --keep_going --skip_incompatible_explicit_targets \
+                        --target_pattern_file=bazel-diff2-out/build_targets.txt
+                  when:
+                    stageStatus: Success
+                    condition: <+execution.steps.select_targets.output.outputVariables.BUILD_COUNT> != "0"
+              - step:
+                  type: Run
+                  name: Test
+                  identifier: test
+                  spec:
+                    shell: Bash
+                    command: |
+                      bazel test --keep_going --skip_incompatible_explicit_targets \
+                        --target_pattern_file=bazel-diff2-out/test_targets.txt
+                  when:
+                    stageStatus: Success
+                    condition: <+execution.steps.select_targets.output.outputVariables.TEST_COUNT> != "0"
+              - step:
+                  type: Run
+                  name: Shadow verify
+                  identifier: shadow_verify
+                  spec:
+                    shell: Bash
+                    command: |
+                      # Exit status is ignored: failures are what this step measures.
+                      bazel test --keep_going //... --build_event_json_file=bazel-diff2-out/full-run.bep.json || true
+                      bazel-diff2 verify --selection bazel-diff2-out --bep bazel-diff2-out/full-run.bep.json
+                  when:
+                    stageStatus: All
+                    condition: <+pipeline.variables.shadow_mode> == "true"
+              - step:
+                  type: Run
+                  name: Upload selection
+                  identifier: upload_selection
+                  spec:
+                    shell: Bash
+                    # Replace with your artifact upload step; keep summary.json,
+                    # impacted.json and verify.json for rollout metrics.
+                    command: ls -l bazel-diff2-out
+                  when:
+                    stageStatus: All

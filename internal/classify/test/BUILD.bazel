@@ -1,0 +1,14 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "test_test",
+    srcs = ["classify_test.go"],
+    deps = [
+        "//internal/classify",
+        "//internal/diff",
+        "//internal/snapshot",
+    ],
+)

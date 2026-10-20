@@ -1,0 +1,16 @@
+# Copyright 2026 Bjorn Leffler.
+# All rights reserved.
+
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "e2e_test",
+    srcs = ["e2e_test.go"],
+    # Runs bazel query on a generated workspace, which needs network access
+    # and a Bazel binary, so it runs outside Bazel. See e2e_test.go.
+    tags = ["manual"],
+    deps = [
+        "//internal/cli",
+        "//internal/report",
+    ],
+)
