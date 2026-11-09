@@ -2,13 +2,13 @@
 // All rights reserved.
 
 // End-to-end tests: build a small Bazel workspace in a git repository, make a
-// series of commits, and check the selection bazel-diff2 makes for each.
+// series of commits, and check the selection bazel-diff makes for each.
 //
 // They run real `bazel query` (never build or test), so they need Bazel on
-// PATH and are skipped unless BAZEL_DIFF2_E2E=1. Set BAZEL to choose the
+// PATH and are skipped unless BAZEL_DIFF_E2E=1. Set BAZEL to choose the
 // binary. Run them outside Bazel's sandbox:
 //
-//	BAZEL_DIFF2_E2E=1 go test ./e2e/...
+//	BAZEL_DIFF_E2E=1 go test ./e2e/...
 package e2e
 
 import (
@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/cli"
-	"github.com/bjornleffler/bazel-diff2/internal/report"
+	"github.com/bjornleffler/bazel-diff/internal/cli"
+	"github.com/bjornleffler/bazel-diff/internal/report"
 )
 
 // fixture is the initial workspace: file path to content.
@@ -221,8 +221,8 @@ func TestQueue(t *testing.T) {
 // returns the Bazel binary to use.
 func requireBazel(t *testing.T) string {
 	t.Helper()
-	if os.Getenv("BAZEL_DIFF2_E2E") != "1" {
-		t.Skip("set BAZEL_DIFF2_E2E=1 to run tests that invoke Bazel")
+	if os.Getenv("BAZEL_DIFF_E2E") != "1" {
+		t.Skip("set BAZEL_DIFF_E2E=1 to run tests that invoke Bazel")
 	}
 	bazel := os.Getenv("BAZEL")
 	if bazel == "" {

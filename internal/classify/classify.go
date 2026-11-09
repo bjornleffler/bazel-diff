@@ -8,8 +8,8 @@ package classify
 import (
 	"strings"
 
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // Everything is the target pattern written when the whole repository must be

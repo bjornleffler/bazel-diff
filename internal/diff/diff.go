@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // Result is the outcome of comparing a base snapshot with a head snapshot.

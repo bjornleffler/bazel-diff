@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/bep"
+	"github.com/bjornleffler/bazel-diff/internal/bep"
 )
 
 // events is a trimmed build event file.

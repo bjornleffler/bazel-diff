@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bjornleffler/bazel-diff2/internal/classify"
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/classify"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
 )
 
 // File names inside an output directory.

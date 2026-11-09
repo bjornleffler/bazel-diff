@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "bazel",
     srcs = ["bazel.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/bazel",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/bazel",
     visibility = ["//:__subpackages__"],
     deps = [
         "//internal/buildpb",

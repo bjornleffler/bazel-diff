@@ -1,10 +1,10 @@
 # Copyright 2026 Bjorn Leffler.
 # All rights reserved.
 
-"""bazel-diff2: selects the Bazel targets a change needs built and tested."""
+"""bazel-diff: selects the Bazel targets a change needs built and tested."""
 
 module(
-    name = "bazel_diff2",
+    name = "bazel_diff",
     version = "0.1.0",
 )
 

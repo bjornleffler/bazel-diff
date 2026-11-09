@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/git"
 )
 
 // newRepo creates a repository with one commit and returns its path.

@@ -3,7 +3,7 @@
 
 // Package bep reads failures out of a Bazel build event file written with
 // --build_event_json_file. Shadow mode uses it to check a full CI run against
-// the targets bazel-diff2 would have selected.
+// the targets bazel-diff would have selected.
 package bep
 
 import (
@@ -13,7 +13,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/bjornleffler/bazel-diff2/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/label"
 )
 
 // Result is what a build event file says about the run.

@@ -9,7 +9,7 @@ go_library(
         "files.go",
         "git.go",
     ],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/git",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/git",
     visibility = ["//:__subpackages__"],
     deps = [],
 )

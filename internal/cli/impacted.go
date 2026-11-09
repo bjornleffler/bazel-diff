@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bjornleffler/bazel-diff2/internal/classify"
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
-	"github.com/bjornleffler/bazel-diff2/internal/fastpath"
-	"github.com/bjornleffler/bazel-diff2/internal/glob"
-	"github.com/bjornleffler/bazel-diff2/internal/report"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/classify"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/fastpath"
+	"github.com/bjornleffler/bazel-diff/internal/glob"
+	"github.com/bjornleffler/bazel-diff/internal/report"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // runImpacted compares a base revision with the head of a change and writes
@@ -33,7 +33,7 @@ func runImpacted(ctx context.Context, args []string) error {
 	headRev := fs.String("head", "", "head revision; default: the working tree as it is on disk")
 	noMergeBase := fs.Bool("no-merge-base", false, "compare with --base itself instead of its merge base with head")
 	parallel := fs.Bool("parallel", false, "on a cache miss, hash base and head at the same time (two Bazel servers)")
-	outDir := fs.String("out-dir", "bazel-diff2-out", "directory for the selection files")
+	outDir := fs.String("out-dir", "bazel-diff-out", "directory for the selection files")
 	var fastPatterns listFlag
 	fs.Var(&fastPatterns, "fast-path", "glob of files whose modification alone never needs a build, e.g. '**/*.md'; repeatable")
 	if err := parse(fs, args); err != nil {

@@ -18,10 +18,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bjornleffler/bazel-diff2/internal/git"
-	"github.com/bjornleffler/bazel-diff2/internal/glob"
-	"github.com/bjornleffler/bazel-diff2/internal/label"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/glob"
+	"github.com/bjornleffler/bazel-diff/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // bazelFiles are evaluated by Bazel itself, so they are never skipped.

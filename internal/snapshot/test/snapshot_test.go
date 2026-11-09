@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // sample returns a small snapshot.

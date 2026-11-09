@@ -1,7 +1,7 @@
 // Copyright 2026 Bjorn Leffler.
 // All rights reserved.
 
-// Package cli implements the bazel-diff2 command line.
+// Package cli implements the bazel-diff command line.
 package cli
 
 import (
@@ -13,14 +13,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bjornleffler/bazel-diff2/internal/classify"
-	"github.com/bjornleffler/bazel-diff2/internal/workspace"
+	"github.com/bjornleffler/bazel-diff/internal/classify"
+	"github.com/bjornleffler/bazel-diff/internal/workspace"
 )
 
 // usage is printed for -h and for unknown commands.
-const usage = `bazel-diff2 selects the Bazel targets a change needs built and tested.
+const usage = `bazel-diff selects the Bazel targets a change needs built and tested.
 
-Usage: bazel-diff2 <command> [flags]
+Usage: bazel-diff <command> [flags]
 
 Commands:
   impacted  select targets for one change (a pull request); the usual CI entry point
@@ -31,7 +31,7 @@ Commands:
   verify    shadow mode: check a full run's failures against a selection
   version   print the version
 
-Run 'bazel-diff2 <command> -h' for a command's flags.
+Run 'bazel-diff <command> -h' for a command's flags.
 `
 
 // errUsage marks errors caused by bad arguments; Main exits 2 for them.
@@ -64,7 +64,7 @@ func Main(ctx context.Context, args []string) int {
 	}
 	cmd, ok := commands[args[0]]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "bazel-diff2: unknown command %q\n\n%s", args[0], usage)
+		fmt.Fprintf(os.Stderr, "bazel-diff: unknown command %q\n\n%s", args[0], usage)
 		return 2
 	}
 	err := cmd.run(ctx, args[1:])
@@ -74,20 +74,20 @@ func Main(ctx context.Context, args []string) int {
 	case errors.Is(err, flag.ErrHelp):
 		return 0
 	case errors.Is(err, errUsage):
-		fmt.Fprintf(os.Stderr, "bazel-diff2 %s: %v\n", args[0], err)
+		fmt.Fprintf(os.Stderr, "bazel-diff %s: %v\n", args[0], err)
 		return 2
 	case errors.Is(err, errMisses):
-		fmt.Fprintf(os.Stderr, "bazel-diff2 %s: %v\n", args[0], err)
+		fmt.Fprintf(os.Stderr, "bazel-diff %s: %v\n", args[0], err)
 		return 3
 	default:
-		fmt.Fprintf(os.Stderr, "bazel-diff2 %s: error: %v\n", args[0], err)
+		fmt.Fprintf(os.Stderr, "bazel-diff %s: error: %v\n", args[0], err)
 		return 1
 	}
 }
 
 // logf prints one progress line to standard error.
 func logf(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "bazel-diff2: "+format+"\n", args...)
+	fmt.Fprintf(os.Stderr, "bazel-diff: "+format+"\n", args...)
 }
 
 // listFlag collects a repeatable string flag.
@@ -106,7 +106,7 @@ func (l *listFlag) Set(v string) error {
 func newFlagSet(name, synopsis string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: bazel-diff2 %s %s\n\nFlags:\n", name, synopsis)
+		fmt.Fprintf(fs.Output(), "Usage: bazel-diff %s %s\n\nFlags:\n", name, synopsis)
 		fs.PrintDefaults()
 	}
 	return fs
@@ -199,6 +199,6 @@ func runVersion(ctx context.Context, args []string) error {
 	if err := parse(fs, args); err != nil {
 		return err
 	}
-	_, err := io.WriteString(os.Stdout, "bazel-diff2 "+workspace.ToolVersion+"\n")
+	_, err := io.WriteString(os.Stdout, "bazel-diff "+workspace.ToolVersion+"\n")
 	return err
 }

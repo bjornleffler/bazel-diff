@@ -8,10 +8,10 @@ package test
 import (
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/fastpath"
-	"github.com/bjornleffler/bazel-diff2/internal/git"
-	"github.com/bjornleffler/bazel-diff2/internal/glob"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/fastpath"
+	"github.com/bjornleffler/bazel-diff/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/glob"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // TestCheck walks through each reason a change may not be skipped.

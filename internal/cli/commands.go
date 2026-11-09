@@ -12,12 +12,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/bjornleffler/bazel-diff2/internal/bep"
-	"github.com/bjornleffler/bazel-diff2/internal/classify"
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
-	"github.com/bjornleffler/bazel-diff2/internal/label"
-	"github.com/bjornleffler/bazel-diff2/internal/report"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/bep"
+	"github.com/bjornleffler/bazel-diff/internal/classify"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/report"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // errMisses is returned by verify --fail-on-miss when a full run failed on a
@@ -67,7 +67,7 @@ func runDiff(ctx context.Context, args []string) error {
 	sf.register(fs)
 	basePath := fs.String("base", "", "base snapshot file (required)")
 	headPath := fs.String("head", "", "head snapshot file (required)")
-	outDir := fs.String("out-dir", "bazel-diff2-out", "directory for the selection files")
+	outDir := fs.String("out-dir", "bazel-diff-out", "directory for the selection files")
 	if err := parse(fs, args); err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func readPair(basePath, headPath string) (*snapshot.Snapshot, *snapshot.Snapshot
 // to the change that impacted it.
 func runExplain(ctx context.Context, args []string) error {
 	fs := newFlagSet("explain", "--target <label> [--out-dir <dir> | --base <file> --head <file>]")
-	outDir := fs.String("out-dir", "bazel-diff2-out", "output directory of an impacted or queue run, which holds both snapshots")
+	outDir := fs.String("out-dir", "bazel-diff-out", "output directory of an impacted or queue run, which holds both snapshots")
 	basePath := fs.String("base", "", "base snapshot file; default: base.json.gz in --out-dir")
 	headPath := fs.String("head", "", "head snapshot file; default: head.json.gz in --out-dir")
 	var targets listFlag
@@ -160,7 +160,7 @@ func runExplain(ctx context.Context, args []string) error {
 // would have missed.
 func runVerify(ctx context.Context, args []string) error {
 	fs := newFlagSet("verify", "--bep <file> [--selection <dir>]")
-	selDir := fs.String("selection", "bazel-diff2-out", "output directory of the impacted run for the same change")
+	selDir := fs.String("selection", "bazel-diff-out", "output directory of the impacted run for the same change")
 	bepPath := fs.String("bep", "", "build event JSON file of the full run (--build_event_json_file) (required)")
 	failOnMiss := fs.Bool("fail-on-miss", false, "exit with status 3 when the selection missed a failure")
 	if err := parse(fs, args); err != nil {

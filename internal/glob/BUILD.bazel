@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "glob",
     srcs = ["glob.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/glob",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/glob",
     visibility = ["//:__subpackages__"],
     deps = [],
 )

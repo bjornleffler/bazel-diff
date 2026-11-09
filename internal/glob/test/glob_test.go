@@ -8,7 +8,7 @@ package test
 import (
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/glob"
+	"github.com/bjornleffler/bazel-diff/internal/glob"
 )
 
 // TestMatch covers each wildcard form and root anchoring.

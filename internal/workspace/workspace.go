@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjornleffler/bazel-diff2/internal/bazel"
-	"github.com/bjornleffler/bazel-diff2/internal/buildpb"
-	"github.com/bjornleffler/bazel-diff2/internal/git"
-	"github.com/bjornleffler/bazel-diff2/internal/glob"
-	"github.com/bjornleffler/bazel-diff2/internal/hasher"
-	"github.com/bjornleffler/bazel-diff2/internal/repos"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/bazel"
+	"github.com/bjornleffler/bazel-diff/internal/buildpb"
+	"github.com/bjornleffler/bazel-diff/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/glob"
+	"github.com/bjornleffler/bazel-diff/internal/hasher"
+	"github.com/bjornleffler/bazel-diff/internal/repos"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // ToolVersion is recorded in every snapshot.
@@ -99,7 +99,7 @@ func (c Config) Fingerprint() string {
 // logf writes one progress line.
 func (c Config) logf(format string, args ...any) {
 	if c.Log != nil {
-		fmt.Fprintf(c.Log, "bazel-diff2: "+format+"\n", args...)
+		fmt.Fprintf(c.Log, "bazel-diff: "+format+"\n", args...)
 	}
 }
 
@@ -218,7 +218,7 @@ func DefaultWorktreeRoot(topLevel string) (string, error) {
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(topLevel))
-	return filepath.Join(cache, "bazel-diff2", "worktrees", hex.EncodeToString(sum[:])[:12]), nil
+	return filepath.Join(cache, "bazel-diff", "worktrees", hex.EncodeToString(sum[:])[:12]), nil
 }
 
 // Checkout checks commit out in the worktree called name and returns its path.

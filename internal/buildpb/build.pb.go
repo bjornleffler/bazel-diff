@@ -2791,8 +2791,8 @@ const file_build_proto_rawDesc = "" +
 	"\rdocumentation\x18\x03 \x01(\tR\rdocumentation\x12\x14\n" +
 	"\x05label\x18\x04 \x01(\tR\x05label\"@\n" +
 	"\rBuildLanguage\x12/\n" +
-	"\x04rule\x18\x01 \x03(\v2\x1b.blaze_query.RuleDefinitionR\x04ruleBl\n" +
-	"4com.google.devtools.build.lib.query2.proto.proto2apiZ4github.com/bjornleffler/bazel-diff2/internal/buildpb"
+	"\x04rule\x18\x01 \x03(\v2\x1b.blaze_query.RuleDefinitionR\x04ruleBk\n" +
+	"4com.google.devtools.build.lib.query2.proto.proto2apiZ3github.com/bjornleffler/bazel-diff/internal/buildpb"
 
 var (
 	file_build_proto_rawDescOnce sync.Once

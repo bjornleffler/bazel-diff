@@ -1,7 +1,7 @@
 // Copyright 2026 Bjorn Leffler.
 // All rights reserved.
 
-// Command bazel-diff2 selects the Bazel targets that a change, or a set of
+// Command bazel-diff selects the Bazel targets that a change, or a set of
 // changes, needs built and tested.
 package main
 
@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bjornleffler/bazel-diff2/internal/cli"
+	"github.com/bjornleffler/bazel-diff/internal/cli"
 )
 
 // main runs the command line, cancelling child processes on SIGINT/SIGTERM.

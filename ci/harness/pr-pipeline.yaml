@@ -5,7 +5,7 @@
 # then build and test only those. Replace every <...> placeholder, and adjust
 # platform/runtime to your infrastructure. See README.md, "Harness".
 #
-# The image must contain bazelisk (as `bazel`), git and bazel-diff2. The
+# The image must contain bazelisk (as `bazel`), git and bazel-diff. The
 # snapshot cache is filled by post-merge-pipeline.yaml.
 pipeline:
   name: bazel-pr
@@ -50,11 +50,11 @@ pipeline:
                     envVariables:
                       BASE_REF: origin/<+codebase.targetBranch>
                       SNAPSHOT_CACHE: <snapshot_cache_url>
-                      # Pass the same tag filters to bazel-diff2 as to Bazel.
-                      BAZEL_DIFF2_ARGS: --fast-path=**/*.md --fast-path=docs/**
+                      # Pass the same tag filters to bazel-diff as to Bazel.
+                      BAZEL_DIFF_ARGS: --fast-path=**/*.md --fast-path=docs/**
                     command: |
                       ci/harness/select-targets.sh
-                      set -a; . bazel-diff2-out/outputs.env; set +a
+                      set -a; . bazel-diff-out/outputs.env; set +a
                     outputVariables:
                       - name: FULL_BUILD
                       - name: BUILD_COUNT
@@ -68,7 +68,7 @@ pipeline:
                     shell: Bash
                     command: |
                       bazel build --keep_going --skip_incompatible_explicit_targets \
-                        --target_pattern_file=bazel-diff2-out/build_targets.txt
+                        --target_pattern_file=bazel-diff-out/build_targets.txt
                   when:
                     stageStatus: Success
                     condition: <+execution.steps.select_targets.output.outputVariables.BUILD_COUNT> != "0"
@@ -80,7 +80,7 @@ pipeline:
                     shell: Bash
                     command: |
                       bazel test --keep_going --skip_incompatible_explicit_targets \
-                        --target_pattern_file=bazel-diff2-out/test_targets.txt
+                        --target_pattern_file=bazel-diff-out/test_targets.txt
                   when:
                     stageStatus: Success
                     condition: <+execution.steps.select_targets.output.outputVariables.TEST_COUNT> != "0"
@@ -92,8 +92,8 @@ pipeline:
                     shell: Bash
                     command: |
                       # Exit status is ignored: failures are what this step measures.
-                      bazel test --keep_going //... --build_event_json_file=bazel-diff2-out/full-run.bep.json || true
-                      bazel-diff2 verify --selection bazel-diff2-out --bep bazel-diff2-out/full-run.bep.json
+                      bazel test --keep_going //... --build_event_json_file=bazel-diff-out/full-run.bep.json || true
+                      bazel-diff verify --selection bazel-diff-out --bep bazel-diff-out/full-run.bep.json
                   when:
                     stageStatus: All
                     condition: <+pipeline.variables.shadow_mode> == "true"
@@ -105,6 +105,6 @@ pipeline:
                     shell: Bash
                     # Replace with your artifact upload step; keep summary.json,
                     # impacted.json and verify.json for rollout metrics.
-                    command: ls -l bazel-diff2-out
+                    command: ls -l bazel-diff-out
                   when:
                     stageStatus: All

@@ -1,6 +1,6 @@
-# bazel-diff2
+# bazel-diff
 
-bazel-diff2 works out which Bazel targets a change affects, so CI builds and
+bazel-diff works out which Bazel targets a change affects, so CI builds and
 tests those instead of `//...`. It works on one pull request or on several
 merged together, and it is built for a Harness pipeline. The approach follows
 [Tinder's bazel-diff](https://github.com/Tinder/bazel-diff): hash every
@@ -72,10 +72,10 @@ so its Bazel server stays warm.
 ```bash
 bazel build //...
 bazel test //...
-bazel run //cmd/bazel-diff2 -- version
+bazel run //cmd/bazel-diff -- version
 ```
 
-The binary is `//cmd/bazel-diff2`. Copy it into the CI image (it is a static
+The binary is `//cmd/bazel-diff`. Copy it into the CI image (it is a static
 Go binary) or onto `PATH`.
 
 ## Commands
@@ -89,7 +89,7 @@ Go binary) or onto `PATH`.
 | `explain --target <label>` | Show the dependency chain from a selected target to the change that selected it. Reads the snapshots that `impacted` saves in its output directory. |
 | `verify --bep <file>` | Shadow mode: compare a full run's failures with the selection. See "Rollout". |
 
-Useful flags (run `bazel-diff2 <command> -h` for all of them):
+Useful flags (run `bazel-diff <command> -h` for all of them):
 
 - `--cache <url>`: where snapshots are cached. Add `--upload` to write as
   well as read.
@@ -116,7 +116,7 @@ Useful flags (run `bazel-diff2 <command> -h` for all of them):
 ### Output files
 
 `impacted`, `queue` and `diff` write these files to `--out-dir` (default
-`bazel-diff2-out`):
+`bazel-diff-out`):
 
 | File | Content |
 |---|---|
@@ -134,10 +134,10 @@ On a full build, both target files contain `//...` and `FULL_BUILD=true`.
 
 `ci/harness/` holds templates. Replace the `<...>` placeholders before use.
 
-- `select-targets.sh` runs bazel-diff2 and **never fails the step**. If the
+- `select-targets.sh` runs bazel-diff and **never fails the step**. If the
   tool errors, is missing, or cannot fetch the base, the script writes a
   full-build selection, so a tool problem costs time, not coverage.
-  - It reads `BASE_REF`, `SNAPSHOT_CACHE` and `BAZEL_DIFF2_ARGS` from the
+  - It reads `BASE_REF`, `SNAPSHOT_CACHE` and `BAZEL_DIFF_ARGS` from the
     environment.
   - If `PR_REFS` is set, it runs `queue` mode instead.
 - `pr-pipeline.yaml` runs the select step and exports `outputs.env` as output
@@ -156,7 +156,7 @@ so a snapshot from a different image looks like a toolchain change.
 ## Rollout
 
 1. **Shadow mode.** Set the pipeline variable `shadow_mode=true`. Each PR
-   still runs `bazel test //...` with a build event file. `bazel-diff2 verify`
+   still runs `bazel test //...` with a build event file. `bazel-diff verify`
    then writes `verify.json`, which lists every failing test or target the
    selection left out. Any miss is a bug to fix before going further. The
    other numbers in `verify.json` measure how much is saved.
@@ -185,7 +185,7 @@ so a snapshot from a different image looks like a toolchain change.
 
 ```bash
 bazel test //...                       # unit tests (in <package>/test/)
-BAZEL_DIFF2_E2E=1 go test ./e2e/...    # end-to-end, runs real `bazel query`
+BAZEL_DIFF_E2E=1 go test ./e2e/...    # end-to-end, runs real `bazel query`
 tools/regen_proto.sh                   # after updating internal/buildpb/build.proto
 bazel run //:gazelle                   # after adding files or imports
 ```

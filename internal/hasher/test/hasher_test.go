@@ -8,9 +8,9 @@ package test
 import (
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/buildpb"
-	"github.com/bjornleffler/bazel-diff2/internal/hasher"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/buildpb"
+	"github.com/bjornleffler/bazel-diff/internal/hasher"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 	"google.golang.org/protobuf/proto"
 )
 

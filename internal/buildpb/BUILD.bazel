@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "buildpb",
     srcs = ["build.pb.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/buildpb",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/buildpb",
     visibility = ["//:__subpackages__"],
     deps = [
         "@org_golang_google_protobuf//reflect/protoreflect",

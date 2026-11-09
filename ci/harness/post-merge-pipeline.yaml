@@ -41,4 +41,4 @@ pipeline:
                     # Hashes the clean checkout in place, which keeps this agent's
                     # Bazel server warm; a dirty tree is never uploaded.
                     command: |
-                      bazel-diff2 hash --cache <snapshot_cache_url> --upload --out snapshot.json.gz
+                      bazel-diff hash --cache <snapshot_cache_url> --upload --out snapshot.json.gz

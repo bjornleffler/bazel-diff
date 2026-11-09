@@ -2,7 +2,7 @@
 // All rights reserved.
 
 // Package snapshot defines the record of one revision's target hashes, which
-// bazel-diff2 writes to disk, caches per commit, and compares between revisions.
+// bazel-diff writes to disk, caches per commit, and compares between revisions.
 package snapshot
 
 import (

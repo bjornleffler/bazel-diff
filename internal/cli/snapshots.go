@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/bjornleffler/bazel-diff2/internal/cache"
-	"github.com/bjornleffler/bazel-diff2/internal/git"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
-	"github.com/bjornleffler/bazel-diff2/internal/workspace"
+	"github.com/bjornleffler/bazel-diff/internal/cache"
+	"github.com/bjornleffler/bazel-diff/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/workspace"
 )
 
 // repoFlags locate the repository, the snapshot cache and the worktrees.

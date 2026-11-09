@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "cache",
     srcs = ["cache.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/cache",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/cache",
     visibility = ["//:__subpackages__"],
     deps = [],
 )

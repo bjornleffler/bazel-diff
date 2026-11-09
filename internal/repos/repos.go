@@ -35,7 +35,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjornleffler/bazel-diff2/internal/git"
+	"github.com/bjornleffler/bazel-diff/internal/git"
 )
 
 // contentsCacheEntry matches a repository contents cache entry path and

@@ -1,4 +1,4 @@
-module github.com/bjornleffler/bazel-diff2
+module github.com/bjornleffler/bazel-diff
 
 go 1.25.0
 

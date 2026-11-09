@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/cache"
+	"github.com/bjornleffler/bazel-diff/internal/cache"
 )
 
 // TestDirStore puts and gets a file in a directory store.

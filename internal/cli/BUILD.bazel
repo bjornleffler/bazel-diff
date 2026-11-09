@@ -12,7 +12,7 @@ go_library(
         "queue.go",
         "snapshots.go",
     ],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/cli",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/cli",
     visibility = ["//:__subpackages__"],
     deps = [
         "//internal/bep",

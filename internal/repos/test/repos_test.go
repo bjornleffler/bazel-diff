@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/repos"
+	"github.com/bjornleffler/bazel-diff/internal/repos"
 )
 
 // layout builds an output base with one repository of each kind and returns

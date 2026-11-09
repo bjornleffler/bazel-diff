@@ -16,7 +16,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bjornleffler/bazel-diff2/internal/buildpb"
+	"github.com/bjornleffler/bazel-diff/internal/buildpb"
 	"google.golang.org/protobuf/encoding/protodelim"
 )
 
@@ -33,7 +33,7 @@ var QueryFlags = []string{
 	"--consistent_labels",
 	"--noproto:flatten_selects",
 	"--order_output=no",
-	"--tool_tag=bazel-diff2",
+	"--tool_tag=bazel-diff",
 }
 
 // Runner invokes Bazel in one workspace.
@@ -122,7 +122,7 @@ func (r Runner) Query(ctx context.Context, expr string, extraFlags []string, kee
 	}
 	var exitErr *exec.ExitError
 	if errors.As(waitErr, &exitErr) && keepGoing && exitErr.ExitCode() == queryExitPartial {
-		fmt.Fprintln(cmd.Stderr, "bazel-diff2: warning: bazel query returned a partial result (--keep_going)")
+		fmt.Fprintln(cmd.Stderr, "bazel-diff: warning: bazel query returned a partial result (--keep_going)")
 		return nil
 	}
 	if waitErr != nil {

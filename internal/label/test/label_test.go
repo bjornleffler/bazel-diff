@@ -8,7 +8,7 @@ package test
 import (
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/label"
 )
 
 // TestParse covers main, external and shorthand labels.

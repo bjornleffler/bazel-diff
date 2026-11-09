@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "fastpath",
     srcs = ["fastpath.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/fastpath",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/fastpath",
     visibility = ["//:__subpackages__"],
     deps = [
         "//internal/git",

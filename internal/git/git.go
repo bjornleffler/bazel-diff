@@ -1,7 +1,7 @@
 // Copyright 2026 Bjorn Leffler.
 // All rights reserved.
 
-// Package git wraps the handful of git commands bazel-diff2 needs: resolving
+// Package git wraps the handful of git commands bazel-diff needs: resolving
 // revisions, listing changed files, content hashes for every file in a working
 // tree, and reusable worktrees for checking out other revisions.
 package git
@@ -23,7 +23,7 @@ type Repo struct {
 
 // identity is passed to commands that create commits, so they work on CI
 // agents with no git user configured.
-var identity = []string{"-c", "user.name=bazel-diff2", "-c", "user.email=bazel-diff2@localhost"}
+var identity = []string{"-c", "user.name=bazel-diff", "-c", "user.email=bazel-diff@localhost"}
 
 // run executes git with the given arguments and returns its standard output.
 // The error includes git's standard error, which is where it explains itself.
@@ -227,7 +227,7 @@ func (r Repo) Merge(ctx context.Context, dir, base string, heads []string) (stri
 		return "", err
 	}
 	wt := Repo{Dir: dir}
-	args := append(append([]string{}, identity...), "merge", "--no-ff", "--no-edit", "-m", "bazel-diff2 merge")
+	args := append(append([]string{}, identity...), "merge", "--no-ff", "--no-edit", "-m", "bazel-diff merge")
 	args = append(args, heads...)
 	if _, err := wt.run(ctx, nil, args...); err != nil {
 		wt.run(ctx, nil, "merge", "--abort")

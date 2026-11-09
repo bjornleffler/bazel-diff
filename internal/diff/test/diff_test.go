@@ -8,8 +8,8 @@ package test
 import (
 	"testing"
 
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
 // snap builds a snapshot from targets with the given seeds.

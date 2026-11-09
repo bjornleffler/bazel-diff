@@ -26,7 +26,7 @@ package blaze_query;
 // option cc_api_version = 2;
 // option java_api_version = 1;
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
-option go_package = "github.com/bjornleffler/bazel-diff2/internal/buildpb";
+option go_package = "github.com/bjornleffler/bazel-diff/internal/buildpb";
 
 message License {
   repeated string license_type = 1;
@@ -362,7 +362,7 @@ message Rule {
   //
   // Requires --proto:rule_classes=true
   // Field 17 (rule_class_info, stardoc_output.RuleInfo) is omitted by
-  // bazel-diff2: it is only emitted with --proto:rule_classes, and protobuf
+  // bazel-diff: it is only emitted with --proto:rule_classes, and protobuf
   // keeps it as an unknown field if it ever appears.
 }
 

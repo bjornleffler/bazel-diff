@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "snapshot",
     srcs = ["snapshot.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/snapshot",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/snapshot",
     visibility = ["//:__subpackages__"],
     deps = [],
 )

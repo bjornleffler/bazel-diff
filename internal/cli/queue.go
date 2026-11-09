@@ -12,10 +12,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/bjornleffler/bazel-diff2/internal/classify"
-	"github.com/bjornleffler/bazel-diff2/internal/diff"
-	"github.com/bjornleffler/bazel-diff2/internal/report"
-	"github.com/bjornleffler/bazel-diff2/internal/workspace"
+	"github.com/bjornleffler/bazel-diff/internal/classify"
+	"github.com/bjornleffler/bazel-diff/internal/diff"
+	"github.com/bjornleffler/bazel-diff/internal/report"
+	"github.com/bjornleffler/bazel-diff/internal/workspace"
 )
 
 // combinedOnly attributes a target that no single pull request impacts on its
@@ -37,7 +37,7 @@ func runQueue(ctx context.Context, args []string) error {
 	var prs listFlag
 	fs.Var(&prs, "pr", "pull request head revision; repeatable (required)")
 	perPR := fs.Bool("per-pr", false, "also hash each pull request merged alone, and write attribution.json")
-	outDir := fs.String("out-dir", "bazel-diff2-out", "directory for the selection files")
+	outDir := fs.String("out-dir", "bazel-diff-out", "directory for the selection files")
 	if err := parse(fs, args); err != nil {
 		return err
 	}

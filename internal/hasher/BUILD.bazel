@@ -6,7 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "hasher",
     srcs = ["hasher.go"],
-    importpath = "github.com/bjornleffler/bazel-diff2/internal/hasher",
+    importpath = "github.com/bjornleffler/bazel-diff/internal/hasher",
     visibility = ["//:__subpackages__"],
     deps = [
         "//internal/buildpb",

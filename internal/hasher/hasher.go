@@ -21,9 +21,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/bjornleffler/bazel-diff2/internal/buildpb"
-	"github.com/bjornleffler/bazel-diff2/internal/label"
-	"github.com/bjornleffler/bazel-diff2/internal/snapshot"
+	"github.com/bjornleffler/bazel-diff/internal/buildpb"
+	"github.com/bjornleffler/bazel-diff/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 	"google.golang.org/protobuf/proto"
 )
 
