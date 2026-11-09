@@ -143,9 +143,15 @@ its progress on standard error. It then builds them, tests included, with
 `--max-test-distance` are left out, since `bazel test` would run them.
 `analyse` stops after printing. It lists the targets to build, then the tests
 to run, with each heading on standard error, so standard output stays a plain
-list. If
-nothing is affected, it does not run Bazel. If the change forces a full build,
-such as a `.bazelversion` edit, it builds the patterns as given.
+list. If nothing is affected, it does not run Bazel. If the change forces a
+full build, such as a `.bazelversion` edit, it builds the patterns as given.
+
+These commands query only what the patterns need: `deps(<patterns>)`, such as
+`deps("//src/...")`. Nothing else can change a selected target, so the result
+is the same as querying the whole repository, it is faster, and broken
+packages outside the patterns do not get in the way. `--query` overrides it.
+Because the query is part of the snapshot fingerprint, these snapshots are
+not shared with a `--cache` filled by `hash`, which queries everything.
 
 Hashing the base revision runs Bazel in a separate worktree. That worktree
 uses the base's `.bazelversion`, so that Bazel version must be available.
@@ -164,9 +170,10 @@ root (the nearest directory with `MODULE.bazel`, `REPO.bazel`, `WORKSPACE` or
   (such as `MODULE.bazel -> bucketfs/MODULE.bazel.bucketfs`) are copied as
   they are so they resolve into the base checkout, and `MODULE.bazel.lock` is
   copied so Bazel's rewrite of it never touches the real one.
-- The default query covers the repository and its dependencies,
-  `deps(//bucketfs/...:all-targets)`, not the whole workspace, whose other
-  repositories may not even load.
+- The default query of `impacted`, `hash` and `queue` covers the repository
+  and its dependencies, `deps(//bucketfs/...:all-targets)`, not the whole
+  workspace, whose other repositories may not even load. `build`, `test` and
+  `analyse` query their patterns' dependencies, as everywhere.
 - `--fast-path` globs and seeds match workspace paths, such as
   `bucketfs/docs/**`.
 

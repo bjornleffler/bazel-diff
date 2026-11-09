@@ -118,3 +118,21 @@ func TestResolve(t *testing.T) {
 		}
 	}
 }
+
+// TestDepsQuery builds the query for positive and negative patterns.
+func TestDepsQuery(t *testing.T) {
+	cases := []struct {
+		patterns []string
+		want     string
+	}{
+		{[]string{"//..."}, `deps("//...")`},
+		{[]string{"//a/...", "//b:x"}, `deps(("//a/..." + "//b:x"))`},
+		{[]string{"//a/...", "-//a/gen/..."}, `deps(("//a/..." - "//a/gen/..."))`},
+		{[]string{"-//a/...", "//a:x"}, `deps(((set() - "//a/...") + "//a:x"))`},
+	}
+	for _, c := range cases {
+		if got := label.DepsQuery(mustPatterns(t, c.patterns...)); got != c.want {
+			t.Errorf("DepsQuery(%q) = %s, want %s", c.patterns, got, c.want)
+		}
+	}
+}

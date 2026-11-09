@@ -8,6 +8,7 @@ package label
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -149,4 +150,27 @@ func Filter(labels []string, patterns []Pattern) []string {
 		}
 	}
 	return kept
+}
+
+// DepsQuery returns a `bazel query` expression for the targets the patterns
+// select and everything they depend on. Nothing else can change the hash of
+// a selected target, so hashing this is enough to select among the
+// patterns' targets, at a fraction of the cost of the whole repository, and
+// broken packages elsewhere do not get in the way. Patterns combine left to
+// right as in Bazel: "//a/... -//a/gen/..." becomes
+// deps(("//a/..." - "//a/gen/...")).
+func DepsQuery(patterns []Pattern) string {
+	expr := "set()"
+	for i, p := range patterns {
+		quoted := strconv.Quote(strings.TrimPrefix(p.String(), "-"))
+		switch {
+		case i == 0 && !p.Negative:
+			expr = quoted
+		case p.Negative:
+			expr = "(" + expr + " - " + quoted + ")"
+		default:
+			expr = "(" + expr + " + " + quoted + ")"
+		}
+	}
+	return "deps(" + expr + ")"
 }

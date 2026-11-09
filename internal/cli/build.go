@@ -50,7 +50,7 @@ func runBuild(ctx context.Context, args []string) error {
 	var cf changeFlags
 	cf.register(fs, "HEAD")
 	dryRun := fs.Bool("dry-run", false, "print the affected targets without building them")
-	patterns, bazelFlags, err := parseBuildArgs(fs, args)
+	patterns, bazelFlags, err := parseBuildArgs(fs, &cf, args)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func runTest(ctx context.Context, args []string) error {
 	fs := newFlagSet("test", "[flags] <target pattern>... [-- <bazel test flags>]")
 	var cf changeFlags
 	cf.register(fs, "HEAD")
-	patterns, bazelFlags, err := parseBuildArgs(fs, args)
+	patterns, bazelFlags, err := parseBuildArgs(fs, &cf, args)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func runAnalyse(ctx context.Context, args []string) error {
 	fs := newFlagSet("analyse", "[flags] <target pattern>...")
 	var cf changeFlags
 	cf.register(fs, "HEAD")
-	patterns, bazelFlags, err := parseBuildArgs(fs, args)
+	patterns, bazelFlags, err := parseBuildArgs(fs, &cf, args)
 	if err != nil {
 		return err
 	}
@@ -155,8 +155,12 @@ func runAnalyse(ctx context.Context, args []string) error {
 // parseBuildArgs parses the flags of build, test or analyse, then separates
 // the positional arguments into target patterns and, after "--", flags for
 // Bazel. At least one pattern is required. Relative patterns are resolved
-// against the current directory, as Bazel does.
-func parseBuildArgs(fs *flag.FlagSet, args []string) ([]label.Pattern, []string, error) {
+// against the current directory, as Bazel does. Unless --query is given, the
+// query becomes the patterns' dependencies (see label.DepsQuery).
+func parseBuildArgs(fs *flag.FlagSet, cf *changeFlags, args []string) ([]label.Pattern, []string, error) {
+	q := fs.Lookup("query")
+	q.DefValue = "deps(<target patterns>)"
+	q.Usage = "query expression whose result is hashed; must cover the patterns and their dependencies"
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil, nil, err
@@ -189,6 +193,11 @@ func parseBuildArgs(fs *flag.FlagSet, args []string) ([]label.Pattern, []string,
 			return nil, nil, fmt.Errorf("%w: %v", errUsage, err)
 		}
 		patterns = append(patterns, p)
+	}
+	queryGiven := false
+	fs.Visit(func(f *flag.Flag) { queryGiven = queryGiven || f.Name == "query" })
+	if !queryGiven {
+		cf.hf.query = label.DepsQuery(patterns)
 	}
 	return patterns, bazelFlags, nil
 }
