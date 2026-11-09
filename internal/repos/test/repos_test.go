@@ -6,6 +6,8 @@
 package test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,5 +90,52 @@ func TestMarkerIgnore(t *testing.T) {
 	c := &repos.Resolver{OutputBase: a.OutputBase, InstallBase: a.InstallBase}
 	if c.RepoHash("cached+") == cached {
 		t.Error("recorded inputs do not affect the identity")
+	}
+}
+
+// goEnvOutputBase builds an output base at root/name whose Gazelle-style
+// go.env mentions its own path, plus a repository fetched into a shared
+// contents cache entry that records the go.env hash Bazel would compute. It
+// returns a resolver for that output base.
+func goEnvOutputBase(t *testing.T, root, name, toolchain string) *repos.Resolver {
+	t.Helper()
+	ob := filepath.Join(root, name)
+	cacheRepo := filepath.Join(ob, "external", "gazelle++cache")
+	os.MkdirAll(cacheRepo, 0o755)
+	goEnv := "GOPATH='" + cacheRepo + "'\nGOTOOLCHAIN='" + toolchain + "'\n"
+	os.WriteFile(filepath.Join(cacheRepo, "go.env"), []byte(goEnv), 0o644)
+
+	// Each fetch gets its own uuid entry under the same predeclared-input hash.
+	contents := filepath.Join(root, "cache", "contents", strings.Repeat("b", 64))
+	entry := filepath.Join(contents, name)
+	os.MkdirAll(entry, 0o755)
+	recorded := strings.Repeat("b", 64) + "\n" +
+		"FILE:@@gazelle++cache//go.env " + sha256Hex(goEnv) + "\n" +
+		"FILE:@@//go.mod 1234\n"
+	os.WriteFile(entry+".recorded_inputs", []byte(recorded), 0o644)
+	os.Symlink(entry, filepath.Join(ob, "external", "gazelle++go_deps+dep"))
+	return &repos.Resolver{OutputBase: ob}
+}
+
+// sha256Hex returns the hex SHA-256 of s, as Bazel records file hashes.
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// TestOutputBaseIndependent checks that a recorded input file which embeds
+// the output base path does not make two output bases disagree, while a real
+// change to that file still changes the identity.
+func TestOutputBaseIndependent(t *testing.T) {
+	root := t.TempDir()
+	a := goEnvOutputBase(t, root, "ob_a", "local")
+	b := goEnvOutputBase(t, root, "ob_b", "local")
+	c := goEnvOutputBase(t, root, "ob_c", "go1.99")
+	const dep = "gazelle++go_deps+dep"
+	if ha, hb := a.RepoHash(dep), b.RepoHash(dep); ha != hb {
+		t.Errorf("identities differ only by output base path:\n  %s\n  %s", ha, hb)
+	}
+	if a.RepoHash(dep) == c.RepoHash(dep) {
+		t.Error("a real change to go.env did not change the identity")
 	}
 }

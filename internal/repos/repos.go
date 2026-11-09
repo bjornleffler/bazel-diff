@@ -24,14 +24,26 @@
 //     predeclared-input hash and whose remaining lines record the files,
 //     environment variables and directories the fetch read.
 //  5. A directory without a marker is treated like case 3.
+//
+// The recorded inputs of cases 1 and 4 list each file the fetch read as
+// "FILE:<label> <sha256>". Some of those files are generated inside the
+// output base and embed its absolute path; Gazelle's go.env, which every
+// go_deps repository reads, holds GOPATH and GOROOT under the output base.
+// Two output bases would then disagree about every such repository, and a
+// base revision hashed in its own worktree always has its own output base.
+// So for a file in an external repository whose content mentions the output
+// base, the identity uses a hash of the content with that path replaced by a
+// placeholder, instead of the hash Bazel recorded.
 package repos
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -57,6 +69,9 @@ type Resolver struct {
 
 	mu    sync.Mutex
 	repos map[string]*repo
+
+	outputBaseOnce  sync.Once
+	outputBaseForms []string
 }
 
 // repo is what the Resolver learned about one repository.
@@ -124,7 +139,7 @@ func (r *Resolver) describe(name string) *repo {
 		for _, candidate := range []string{raw, target} {
 			if m := contentsCacheEntry.FindStringSubmatch(filepath.ToSlash(candidate)); m != nil {
 				recorded, _ := os.ReadFile(candidate + ".recorded_inputs")
-				return &repo{identity: "contents:" + m[1] + ":" + digest(r.filterMarker(recorded))}
+				return &repo{identity: "contents:" + m[1] + ":" + digest(r.recordedInputs(recorded))}
 			}
 		}
 		if r.InstallBase != "" {
@@ -142,9 +157,67 @@ func (r *Resolver) describe(name string) *repo {
 	}
 
 	if marker, err := os.ReadFile(filepath.Join(r.OutputBase, "external", "@"+name+".marker")); err == nil {
-		return &repo{identity: "marker:" + digest(r.filterMarker(marker))}
+		return &repo{identity: "marker:" + digest(r.recordedInputs(marker))}
 	}
 	return &repo{identity: "local:" + name, local: true, dir: dir}
+}
+
+// recordedInputs prepares a marker file or recorded inputs file for hashing:
+// it drops ignored lines, then makes FILE: lines independent of where the
+// output base is.
+func (r *Resolver) recordedInputs(content []byte) []byte {
+	lines := strings.Split(string(r.filterMarker(content)), "\n")
+	for i, line := range lines {
+		lines[i] = r.normalizeFileLine(line)
+	}
+	return []byte(strings.Join(lines, "\n"))
+}
+
+// fileInput matches a recorded "FILE:@@<repo>//<path> <hash>" line for a
+// file in an external repository, capturing the repository and the path.
+var fileInput = regexp.MustCompile(`^FILE:@@([^/]+)//(\S+) \S+$`)
+
+// outputBasePlaceholder replaces the output base path in normalized files.
+const outputBasePlaceholder = "${output_base}"
+
+// normalizeFileLine rewrites a FILE: line whose file lives in the output base
+// and mentions the output base path, so that its hash covers the content with
+// the path replaced. Every other line is returned unchanged, including when
+// the file cannot be read: Bazel's own hash is the best evidence then.
+func (r *Resolver) normalizeFileLine(line string) string {
+	m := fileInput.FindStringSubmatch(line)
+	if m == nil {
+		return line
+	}
+	path := filepath.Join(r.OutputBase, "external", m[1], filepath.FromSlash(m[2]))
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return line
+	}
+	normalized := content
+	for _, base := range r.outputBasePaths() {
+		normalized = bytes.ReplaceAll(normalized, []byte(base), []byte(outputBasePlaceholder))
+	}
+	if bytes.Equal(normalized, content) {
+		return line
+	}
+	return "FILE:@@" + m[1] + "//" + m[2] + " normalized:" + digest(normalized)
+}
+
+// outputBasePaths returns the output base path as `bazel info` gave it and,
+// if different, with symlinks resolved (on macOS /var is /private/var), the
+// longer one first so that it is replaced before its suffix could match.
+func (r *Resolver) outputBasePaths() []string {
+	r.outputBaseOnce.Do(func() {
+		r.outputBaseForms = []string{r.OutputBase}
+		if resolved, err := filepath.EvalSymlinks(r.OutputBase); err == nil && resolved != r.OutputBase {
+			r.outputBaseForms = append(r.outputBaseForms, resolved)
+			sort.Slice(r.outputBaseForms, func(i, j int) bool {
+				return len(r.outputBaseForms[i]) > len(r.outputBaseForms[j])
+			})
+		}
+	})
+	return r.outputBaseForms
 }
 
 // filterMarker removes the lines that IgnoreMarkerPrefixes asks to ignore.
