@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // End-to-end tests: build a small Bazel workspace in a git repository, make a
 // series of commits, and check the selection bazel-diff makes for each.

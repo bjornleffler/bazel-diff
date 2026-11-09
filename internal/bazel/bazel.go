@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package bazel runs `bazel info` and `bazel query` in a workspace and streams
 // the query result as protocol buffers.

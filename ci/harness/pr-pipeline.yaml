@@ -1,5 +1,5 @@
 # Copyright 2026 Bjorn Leffler.
-# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Template Harness CI pipeline for pull requests: select the impacted targets,
 # then build and test only those. Replace every <...> placeholder, and adjust

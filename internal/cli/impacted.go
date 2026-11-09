@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // The impacted command: select targets for one change.
 

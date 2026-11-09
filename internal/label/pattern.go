@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Target patterns, the "//..." and "//pkg:all" arguments that `bazel build`
 // takes, restricted to the main repository.

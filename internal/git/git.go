@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package git wraps the handful of git commands bazel-diff needs: resolving
 // revisions, listing changed files, content hashes for every file in a working

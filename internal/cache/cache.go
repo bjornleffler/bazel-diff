@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package cache stores snapshots by commit, so the base side of a diff is
 // usually a download instead of a Bazel query.

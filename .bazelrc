@@ -1,5 +1,5 @@
 # Copyright 2026 Bjorn Leffler.
-# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 common --enable_bzlmod
 build --incompatible_strict_action_env

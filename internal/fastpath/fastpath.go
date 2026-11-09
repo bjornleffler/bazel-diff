@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package fastpath decides, from the list of changed files alone, that a
 // change cannot affect any target, so the head revision need not be queried.

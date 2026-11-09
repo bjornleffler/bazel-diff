@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Command bazel-diff selects the Bazel targets that a change, or a set of
 // changes, needs built and tested.

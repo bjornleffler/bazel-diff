@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright 2026 Bjorn Leffler.
-# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Regenerates internal/buildpb/build.pb.go from the vendored build.proto.
 # The generated code is checked in, so Bazel never needs a protoc toolchain.

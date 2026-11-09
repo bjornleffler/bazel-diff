@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package workspace hashes a Bazel workspace into a snapshot, and manages the
 // git worktrees used to hash revisions other than the one checked out.

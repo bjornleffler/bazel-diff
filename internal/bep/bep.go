@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package bep reads failures out of a Bazel build event file written with
 // --build_event_json_file. Shadow mode uses it to check a full CI run against

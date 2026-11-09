@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package diff compares two snapshots and reports which targets are impacted,
 // how far each one is from the change that impacted it, and whether the

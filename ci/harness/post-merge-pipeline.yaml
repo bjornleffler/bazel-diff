@@ -1,5 +1,5 @@
 # Copyright 2026 Bjorn Leffler.
-# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Template Harness CI pipeline for every push to the main branch. It stores
 # the snapshot of the new commit in the cache, so pull request pipelines read

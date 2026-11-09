@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright 2026 Bjorn Leffler.
-# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Selects the Bazel targets for one pipeline run and writes them to $OUT_DIR
 # (see README.md, "Output files"). It never fails the pipeline: if bazel-diff

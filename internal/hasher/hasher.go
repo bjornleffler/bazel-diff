@@ -1,5 +1,5 @@
 // Copyright 2026 Bjorn Leffler.
-// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // Package hasher computes a content hash for every target in a `bazel query`
 // result. Each target gets two hashes:
