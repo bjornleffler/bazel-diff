@@ -6,8 +6,10 @@ load("@rules_go//go:def.bzl", "go_binary")
 go_binary(
     name = "bazel-diff",
     srcs = ["main.go"],
-    # No cgo, so the binary copies into any CI image.
-    pure = "on",
+    # Built without cgo, so the binary copies into any CI image. That is set
+    # for the whole build in .bazelrc rather than with pure = "on" here: the
+    # attribute is a configuration transition, which moves the output out of
+    # bazel-bin.
     visibility = ["//visibility:public"],
     deps = ["//internal/cli"],
 )

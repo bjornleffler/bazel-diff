@@ -3,4 +3,6 @@
 
 common --enable_bzlmod
 build --incompatible_strict_action_env
+# Build Go without cgo: static binaries that run in any CI image.
+build --@rules_go//go/config:pure
 test --test_output=errors
