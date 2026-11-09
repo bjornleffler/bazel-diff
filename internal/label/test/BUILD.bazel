@@ -5,6 +5,9 @@ load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "test_test",
-    srcs = ["label_test.go"],
+    srcs = [
+        "label_test.go",
+        "pattern_test.go",
+    ],
     deps = ["//internal/label"],
 )

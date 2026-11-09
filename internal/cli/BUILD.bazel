@@ -6,6 +6,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "cli",
     srcs = [
+        "build.go",
         "cli.go",
         "commands.go",
         "impacted.go",

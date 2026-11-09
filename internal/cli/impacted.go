@@ -7,6 +7,7 @@ package cli
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"sync"
 	"time"
@@ -19,68 +20,97 @@ import (
 	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
 
+// changeFlags describe one change: the revisions to compare and how to turn
+// the difference into a selection. The impacted and build commands share them.
+type changeFlags struct {
+	rf           repoFlags
+	hf           hashFlags
+	sf           selectFlags
+	baseRev      string
+	headRev      string
+	noMergeBase  bool
+	parallel     bool
+	outDir       string
+	fastPatterns listFlag
+}
+
+// register adds the change flags to fs. defaultBase is the --base default;
+// empty makes --base required.
+func (c *changeFlags) register(fs *flag.FlagSet, defaultBase string) {
+	c.rf.register(fs)
+	c.hf.register(fs)
+	c.sf.register(fs)
+	baseHelp := "revision the change is compared against, usually the target branch (required)"
+	if defaultBase != "" {
+		baseHelp = "revision the change is compared against"
+	}
+	fs.StringVar(&c.baseRev, "base", defaultBase, baseHelp)
+	fs.StringVar(&c.headRev, "head", "", "head revision; default: the working tree as it is on disk")
+	fs.BoolVar(&c.noMergeBase, "no-merge-base", false, "compare with --base itself instead of its merge base with head")
+	fs.BoolVar(&c.parallel, "parallel", false, "on a cache miss, hash base and head at the same time (two Bazel servers)")
+	fs.StringVar(&c.outDir, "out-dir", "bazel-diff-out", "directory for the selection files")
+	fs.Var(&c.fastPatterns, "fast-path", "glob of files whose modification alone never needs a build, e.g. '**/*.md'; repeatable")
+}
+
 // runImpacted compares a base revision with the head of a change and writes
 // the build and test selection.
 func runImpacted(ctx context.Context, args []string) error {
 	fs := newFlagSet("impacted", "--base <rev> [--head <rev>] [flags]")
-	var rf repoFlags
-	var hf hashFlags
-	var sf selectFlags
-	rf.register(fs)
-	hf.register(fs)
-	sf.register(fs)
-	baseRev := fs.String("base", "", "revision the change is compared against, usually the target branch (required)")
-	headRev := fs.String("head", "", "head revision; default: the working tree as it is on disk")
-	noMergeBase := fs.Bool("no-merge-base", false, "compare with --base itself instead of its merge base with head")
-	parallel := fs.Bool("parallel", false, "on a cache miss, hash base and head at the same time (two Bazel servers)")
-	outDir := fs.String("out-dir", "bazel-diff-out", "directory for the selection files")
-	var fastPatterns listFlag
-	fs.Var(&fastPatterns, "fast-path", "glob of files whose modification alone never needs a build, e.g. '**/*.md'; repeatable")
+	var cf changeFlags
+	cf.register(fs, "")
 	if err := parse(fs, args); err != nil {
 		return err
 	}
-	if *baseRev == "" {
+	if cf.baseRev == "" {
 		return fmt.Errorf("%w: --base is required", errUsage)
 	}
-	start := time.Now()
+	_, err := cf.selectChange(ctx)
+	return err
+}
 
-	s, err := newSnapshotter(ctx, &rf, hf.config())
+// selectChange hashes base and head (or reuses cached snapshots), writes the
+// selection files to the output directory and returns the selection.
+func (c *changeFlags) selectChange(ctx context.Context) (classify.Selection, error) {
+	start := time.Now()
+	s, err := newSnapshotter(ctx, &c.rf, c.hf.config())
 	if err != nil {
-		return err
+		return classify.Selection{}, err
 	}
-	inPlace := *headRev == ""
+	inPlace := c.headRev == ""
 	headCommit, err := s.resolve(ctx, "HEAD")
 	if !inPlace {
-		headCommit, err = s.resolve(ctx, *headRev)
+		headCommit, err = s.resolve(ctx, c.headRev)
 	}
 	if err != nil {
-		return err
+		return classify.Selection{}, err
 	}
-	baseCommit, err := s.resolve(ctx, *baseRev)
+	baseCommit, err := s.resolve(ctx, c.baseRev)
 	if err != nil {
-		return err
+		return classify.Selection{}, err
 	}
-	if !*noMergeBase {
+	if !c.noMergeBase {
 		if baseCommit, err = s.repo.MergeBase(ctx, baseCommit, headCommit); err != nil {
-			return err
+			return classify.Selection{}, err
 		}
 	}
 	logf("base %s, head %s%s", short(baseCommit), short(headCommit), map[bool]string{true: " (working tree)"}[inPlace])
 
-	basePath := outPath(*outDir, report.BaseSnapshotFile)
-	headPath := outPath(*outDir, report.HeadSnapshotFile)
+	basePath := outPath(c.outDir, report.BaseSnapshotFile)
+	headPath := outPath(c.outDir, report.HeadSnapshotFile)
 	base := s.fromCache(ctx, baseCommit, basePath)
 
-	if base != nil && len(fastPatterns) > 0 {
-		skip, reason, err := checkFastPath(ctx, s, base, baseCommit, headCommit, inPlace, fastPatterns)
+	if base != nil && len(c.fastPatterns) > 0 {
+		skip, reason, err := checkFastPath(ctx, s, base, baseCommit, headCommit, inPlace, c.fastPatterns)
 		if err != nil {
-			return err
+			return classify.Selection{}, err
 		}
 		logf("fast path: %s", reason)
 		if skip {
 			result := &diff.Result{BaseCommit: baseCommit, HeadCommit: headCommit}
-			return report.Write(*outDir, result, classify.Select(result, sf.options()),
+			sel := classify.Select(result, c.sf.options())
+			err := report.Write(c.outDir, result, sel,
 				report.Options{FastPath: true, DurationMs: time.Since(start).Milliseconds()})
+			return sel, err
 		}
 	}
 
@@ -95,20 +125,20 @@ func runImpacted(ctx context.Context, args []string) error {
 		return s.computeAt(ctx, "base", baseCommit, basePath)
 	}
 	var head *snapshot.Snapshot
-	if base == nil && *parallel {
+	if base == nil && c.parallel {
 		base, head, err = both(hashBase, hashHead)
 	} else {
 		if base == nil {
 			if base, err = hashBase(); err != nil {
-				return err
+				return classify.Selection{}, err
 			}
 		}
 		head, err = hashHead()
 	}
 	if err != nil {
-		return err
+		return classify.Selection{}, err
 	}
-	return writeSelection(*outDir, base, head, sf.options(), start)
+	return writeSelection(c.outDir, base, head, c.sf.options(), start)
 }
 
 // checkFastPath decides whether the change between two commits can skip the
@@ -156,17 +186,17 @@ func both(a, b func() (*snapshot.Snapshot, error)) (*snapshot.Snapshot, *snapsho
 }
 
 // writeSelection diffs two snapshots, selects targets, writes the output
-// files and logs a one-line summary.
-func writeSelection(outDir string, base, head *snapshot.Snapshot, opts classify.Options, start time.Time) error {
+// files, logs a one-line summary and returns the selection.
+func writeSelection(outDir string, base, head *snapshot.Snapshot, opts classify.Options, start time.Time) (classify.Selection, error) {
 	result := diff.Compare(base, head)
 	sel := classify.Select(result, opts)
 	if err := report.Write(outDir, result, sel, report.Options{DurationMs: time.Since(start).Milliseconds()}); err != nil {
-		return err
+		return sel, err
 	}
 	for _, reason := range result.Reasons {
 		logf("full build: %s", reason)
 	}
 	logf("%d impacted targets: %d to build, %d tests, %d deferred tests; wrote %s",
 		len(result.Impacted), len(sel.Build), len(sel.Tests), len(sel.DeferredTests), outDir)
-	return nil
+	return sel, nil
 }

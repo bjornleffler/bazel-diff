@@ -12,8 +12,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/bjornleffler/bazel-diff/internal/classify"
-	"github.com/bjornleffler/bazel-diff/internal/diff"
 	"github.com/bjornleffler/bazel-diff/internal/report"
 	"github.com/bjornleffler/bazel-diff/internal/workspace"
 )
@@ -74,7 +72,8 @@ func runQueue(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := writeSelection(*outDir, base, head, sf.options(), start); err != nil {
+	combined, err := writeSelection(*outDir, base, head, sf.options(), start)
+	if err != nil {
 		return err
 	}
 	if !*perPR {
@@ -83,7 +82,6 @@ func runQueue(ctx context.Context, args []string) error {
 
 	// Attribute each target of the combined selection to the pull requests
 	// whose own selection contains it.
-	combined := classify.Select(diff.Compare(base, head), sf.options())
 	attribution := make(map[string][]string)
 	for i, pr := range prs {
 		dir, commit, err := s.worktrees.Merge(ctx, "merge", baseCommit, []string{prCommits[i]})
@@ -96,10 +94,10 @@ func runQueue(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		if err := writeSelection(prDir, base, single, sf.options(), start); err != nil {
+		sel, err := writeSelection(prDir, base, single, sf.options(), start)
+		if err != nil {
 			return err
 		}
-		sel := classify.Select(diff.Compare(base, single), sf.options())
 		for _, l := range append(sel.Build, sel.Tests...) {
 			attribution[l] = append(attribution[l], pr)
 		}

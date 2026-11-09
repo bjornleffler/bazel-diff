@@ -82,6 +82,9 @@ Go binary) or onto `PATH`.
 
 | Command | Use |
 |---|---|
+| `analyse [flags] <pattern>...` | No-op version of `build`: print the affected targets, split into those that would be built and those that would be tested, and build nothing. `analyze` is accepted too. |
+| `build [flags] <pattern>... [-- <bazel flags>]` | Print the targets that your pending changes affect, restricted to the target patterns, then run `bazel build` on them. For local use: see "Building only what changed". |
+| `test [flags] <pattern>... [-- <bazel flags>]` | Like `build`, but run `bazel test`: build the affected targets and run the affected tests. |
 | `impacted --base <rev> [--head <rev>]` | Select targets for one change. Head defaults to the working tree as it is on disk, and base is the merge base of the two revisions. This is the usual CI entry point. |
 | `queue --base <rev> --pr <rev> [--pr ...] [--per-pr]` | Merge the PRs into base in a worktree (an octopus merge) and select targets for the result. `--per-pr` also hashes each PR on its own and writes `attribution.json`, which maps each selected target to the PRs that cause it. Targets only the combination causes are listed as `(combination)`. |
 | `hash [--rev <rev>] [--cache <url> --upload]` | Write a snapshot, and with `--upload` fill the cache. Run this on every commit to `main`. |
@@ -113,9 +116,43 @@ Useful flags (run `bazel-diff <command> -h` for all of them):
   head must use the same values. Use `--repo-marker-ignore=ENV:` only if CI
   agents differ in environment variables that a toolchain repository records.
 
+### Building only what changed
+
+```bash
+bazel-diff build //...                      # what uncommitted changes affect
+bazel-diff build --base main //...          # everything this branch changes
+bazel-diff build //src/... -//src/gen/...   # restrict, as with bazel build
+bazel-diff build //... -- --config=ci -k    # flags after -- go to bazel build
+bazel-diff build --dry-run //...            # print the targets, do not build
+bazel-diff analyse //...                    # the same, split into builds and tests
+bazel-diff test //...                       # build, then run the affected tests
+```
+
+By default the change is the working tree compared with `HEAD`. `--base`
+compares with the merge base of a revision instead. Patterns must be absolute
+(`//...`, `//pkg/...`, `//pkg:all`, `//pkg:name`). A leading `-` excludes
+targets, as in Bazel. Put `bazel-diff` flags before the first pattern.
+
+The command prints the affected targets on standard output, one per line, and
+its progress on standard error. It then builds them, tests included, with
+`bazel build --target_pattern_file`, and exits with Bazel's exit code.
+`test` works the same way with `bazel test`, so flags after `--` go to
+`bazel test`. If no tests are affected, it runs `bazel build` instead, because
+`bazel test` fails when it finds no tests. Tests beyond
+`--max-test-distance` are left out, since `bazel test` would run them.
+`analyse` stops after printing. It lists the targets to build, then the tests
+to run, with each heading on standard error, so standard output stays a plain
+list. If
+nothing is affected, it does not run Bazel. If the change forces a full build,
+such as a `.bazelversion` edit, it builds the patterns as given.
+
+Hashing the base revision runs Bazel in a separate worktree. That worktree
+uses the base's `.bazelversion`, so that Bazel version must be available.
+bazelisk downloads it automatically.
+
 ### Output files
 
-`impacted`, `queue` and `diff` write these files to `--out-dir` (default
+`impacted`, `queue`, `diff` and `build` write these files to `--out-dir` (default
 `bazel-diff-out`):
 
 | File | Content |

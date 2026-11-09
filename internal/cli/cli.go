@@ -23,6 +23,10 @@ const usage = `bazel-diff selects the Bazel targets a change needs built and tes
 Usage: bazel-diff <command> [flags]
 
 Commands:
+  analyse   print the targets that pending changes affect, without building, e.g. analyse //...
+            (also accepted as analyze)
+  build     print and build the targets that pending changes affect, e.g. build //...
+  test      print, build and test the targets that pending changes affect, e.g. test //...
   impacted  select targets for one change (a pull request); the usual CI entry point
   queue     select targets for several pull requests merged together
   hash      hash one revision into a snapshot, optionally uploading it to the cache
@@ -44,6 +48,10 @@ type command struct {
 
 // commands maps names to subcommands.
 var commands = map[string]command{
+	"analyse":  {runAnalyse},
+	"analyze":  {runAnalyse}, // the American spelling of analyse
+	"build":    {runBuild},
+	"test":     {runTest},
 	"impacted": {runImpacted},
 	"queue":    {runQueue},
 	"hash":     {runHash},
@@ -68,6 +76,7 @@ func Main(ctx context.Context, args []string) int {
 		return 2
 	}
 	err := cmd.run(ctx, args[1:])
+	var bazelErr *bazelExitError
 	switch {
 	case err == nil:
 		return 0
@@ -76,6 +85,9 @@ func Main(ctx context.Context, args []string) int {
 	case errors.Is(err, errUsage):
 		fmt.Fprintf(os.Stderr, "bazel-diff %s: %v\n", args[0], err)
 		return 2
+	case errors.As(err, &bazelErr):
+		fmt.Fprintf(os.Stderr, "bazel-diff %s: %v\n", args[0], err)
+		return bazelErr.code
 	case errors.Is(err, errMisses):
 		fmt.Fprintf(os.Stderr, "bazel-diff %s: %v\n", args[0], err)
 		return 3

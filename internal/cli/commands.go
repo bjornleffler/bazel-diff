@@ -79,7 +79,8 @@ func runDiff(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	return writeSelection(*outDir, base, head, sf.options(), start)
+	_, err = writeSelection(*outDir, base, head, sf.options(), start)
+	return err
 }
 
 // readPair reads a base and a head snapshot.
