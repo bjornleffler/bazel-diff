@@ -151,6 +151,31 @@ Hashing the base revision runs Bazel in a separate worktree. That worktree
 uses the base's `.bazelversion`, so that Bazel version must be available.
 bazelisk downloads it automatically.
 
+### A workspace above the repository
+
+The Bazel workspace can sit above the git repository: for example `~/git`
+holds `MODULE.bazel`, `.bazelrc` and several repositories side by side, and
+the repository's targets are `//bucketfs/...`. bazel-diff finds the workspace
+root (the nearest directory with `MODULE.bazel`, `REPO.bazel`, `WORKSPACE` or
+`WORKSPACE.bazel`) and adapts:
+
+- The base revision is checked out inside a mirror of the workspace: every
+  other entry of the workspace root is a symlink to the real one, symlinks
+  (such as `MODULE.bazel -> bucketfs/MODULE.bazel.bucketfs`) are copied as
+  they are so they resolve into the base checkout, and `MODULE.bazel.lock` is
+  copied so Bazel's rewrite of it never touches the real one.
+- The default query covers the repository and its dependencies,
+  `deps(//bucketfs/...:all-targets)`, not the whole workspace, whose other
+  repositories may not even load.
+- `--fast-path` globs and seeds match workspace paths, such as
+  `bucketfs/docs/**`.
+
+Only changes inside the repository are seen. Files outside it, such as other
+repositories or a `.bazelrc` in the workspace root, have no base revision:
+both sides read the same live files, so editing them selects nothing. A root
+file that is a symlink into the repository does have one, so a change to
+`MODULE.bazel.bucketfs` still forces a full build.
+
 ### Output files
 
 `impacted`, `queue`, `diff`, `build`, `test` and `analyse` write these files to

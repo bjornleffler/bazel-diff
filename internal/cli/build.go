@@ -19,6 +19,7 @@ import (
 
 	"github.com/bjornleffler/bazel-diff/internal/classify"
 	"github.com/bjornleffler/bazel-diff/internal/label"
+	"github.com/bjornleffler/bazel-diff/internal/workspace"
 )
 
 // The build and test commands write their targets to these files in the
@@ -192,10 +193,6 @@ func parseBuildArgs(fs *flag.FlagSet, args []string) ([]label.Pattern, []string,
 	return patterns, bazelFlags, nil
 }
 
-// workspaceMarkers are the files whose directory Bazel takes as the root of
-// the workspace it runs in.
-var workspaceMarkers = []string{"MODULE.bazel", "REPO.bazel", "WORKSPACE", "WORKSPACE.bazel"}
-
 // currentPackage returns the current directory relative to the root of the
 // Bazel workspace that contains it, in slash form ("" at the root), so that
 // relative target patterns can be resolved the way Bazel resolves them.
@@ -205,22 +202,18 @@ func currentPackage() (string, error) {
 		return "", err
 	}
 	for dir := cwd; ; dir = filepath.Dir(dir) {
-		for _, marker := range workspaceMarkers {
-			// A file, not a directory: on case-insensitive file systems a
-			// directory called "workspace" would match "WORKSPACE".
-			if fi, err := os.Stat(filepath.Join(dir, marker)); err == nil && !fi.IsDir() {
-				rel, err := filepath.Rel(dir, cwd)
-				if err != nil {
-					return "", err
-				}
-				if rel == "." {
-					return "", nil
-				}
-				return filepath.ToSlash(rel), nil
+		if workspace.IsWorkspaceRoot(dir) {
+			rel, err := filepath.Rel(dir, cwd)
+			if err != nil {
+				return "", err
 			}
+			if rel == "." {
+				return "", nil
+			}
+			return filepath.ToSlash(rel), nil
 		}
 		if filepath.Dir(dir) == dir {
-			return "", fmt.Errorf("%w: %s is not inside a Bazel workspace (no %s above it)", errUsage, cwd, strings.Join(workspaceMarkers, ", "))
+			return "", fmt.Errorf("%w: %s is not inside a Bazel workspace (no %s above it)", errUsage, cwd, strings.Join(workspace.Markers, ", "))
 		}
 	}
 }

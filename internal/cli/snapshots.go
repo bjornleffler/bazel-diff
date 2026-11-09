@@ -38,6 +38,7 @@ func (r *repoFlags) register(fs *flag.FlagSet) {
 type snapshotter struct {
 	repo      git.Repo
 	top       string
+	layout    workspace.Layout
 	cfg       workspace.Config
 	store     cache.Store
 	upload    bool
@@ -50,7 +51,16 @@ func newSnapshotter(ctx context.Context, rf *repoFlags, cfg workspace.Config) (*
 	if err != nil {
 		return nil, err
 	}
-	s := &snapshotter{repo: git.Repo{Dir: top}, top: top, cfg: cfg, upload: rf.upload}
+	layout := workspace.FindLayout(top)
+	if layout.Prefix != "" {
+		logf("Bazel workspace %s, repository at //%s", layout.Root, layout.Prefix)
+		if cfg.Query == workspace.DefaultQuery {
+			// The rest of the workspace belongs to other repositories, which
+			// may not even load; query this repository and what it uses.
+			cfg.Query = "deps(//" + layout.Prefix + "/...:all-targets)"
+		}
+	}
+	s := &snapshotter{repo: git.Repo{Dir: top}, top: top, layout: layout, cfg: cfg, upload: rf.upload}
 	if rf.cacheURL != "" {
 		if s.store, err = cache.Open(rf.cacheURL); err != nil {
 			return nil, fmt.Errorf("%w: %v", errUsage, err)
@@ -64,7 +74,7 @@ func newSnapshotter(ctx context.Context, rf *repoFlags, cfg workspace.Config) (*
 			return nil, err
 		}
 	}
-	s.worktrees = workspace.Worktrees{Repo: s.repo, Root: root}
+	s.worktrees = workspace.Worktrees{Repo: s.repo, Root: root, Layout: layout}
 	return s, nil
 }
 
@@ -110,23 +120,23 @@ func (s *snapshotter) atCommit(ctx context.Context, name, commit, dst string) (*
 // computeAt hashes commit in the worktree called name, without consulting
 // the cache, and saves the snapshot at dst.
 func (s *snapshotter) computeAt(ctx context.Context, name, commit, dst string) (*snapshot.Snapshot, error) {
-	dir, err := s.worktrees.Checkout(ctx, name, commit)
+	co, err := s.worktrees.Checkout(ctx, name, commit)
 	if err != nil {
 		return nil, err
 	}
-	return s.hashDir(ctx, dir, dst, true)
+	return s.hashDir(ctx, co, dst, true)
 }
 
 // inPlace hashes the main checkout as it is on disk and saves it at dst.
 func (s *snapshotter) inPlace(ctx context.Context, dst string) (*snapshot.Snapshot, error) {
-	return s.hashDir(ctx, s.top, dst, true)
+	return s.hashDir(ctx, workspace.Checkout{GitDir: s.top, Layout: s.layout}, dst, true)
 }
 
 // hashDir hashes a checkout and saves the snapshot at dst. With upload it
 // also stores the snapshot in the cache, if --upload asked for that and the
 // checkout was clean; throwaway merge commits pass false.
-func (s *snapshotter) hashDir(ctx context.Context, dir, dst string, upload bool) (*snapshot.Snapshot, error) {
-	snap, err := workspace.Hash(ctx, dir, s.cfg)
+func (s *snapshotter) hashDir(ctx context.Context, co workspace.Checkout, dst string, upload bool) (*snapshot.Snapshot, error) {
+	snap, err := workspace.Hash(ctx, co, s.cfg)
 	if err != nil {
 		return nil, err
 	}

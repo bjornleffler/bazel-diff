@@ -103,10 +103,10 @@ func (c Config) logf(format string, args ...any) {
 	}
 }
 
-// Hash hashes the workspace at dir as it is on disk.
-func Hash(ctx context.Context, dir string, cfg Config) (*snapshot.Snapshot, error) {
+// Hash hashes a checkout as it is on disk.
+func Hash(ctx context.Context, co Checkout, cfg Config) (*snapshot.Snapshot, error) {
 	start := time.Now()
-	repo := git.Repo{Dir: dir}
+	repo := git.Repo{Dir: co.GitDir}
 	commit, err := repo.ResolveCommit(ctx, "HEAD")
 	if err != nil {
 		return nil, err
@@ -121,9 +121,9 @@ func Hash(ctx context.Context, dir string, cfg Config) (*snapshot.Snapshot, erro
 	if err != nil {
 		return nil, err
 	}
-	cfg.logf("hashing %s at %s (%d files%s)", dir, short(commit), len(files.Paths()), dirtySuffix(dirty))
+	cfg.logf("hashing %s at %s (%d files%s)", co.GitDir, short(commit), len(files.Paths()), dirtySuffix(dirty))
 
-	runner := bazel.Runner{Bazel: cfg.Bazel, StartupFlags: cfg.StartupFlags, Dir: dir, Stderr: cfg.Log}
+	runner := bazel.Runner{Bazel: cfg.Bazel, StartupFlags: cfg.StartupFlags, Dir: co.Root, Stderr: cfg.Log}
 	info, err := runner.Info(ctx, "release", "output_base", "install_base")
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func Hash(ctx context.Context, dir string, cfg Config) (*snapshot.Snapshot, erro
 		Warn:                 func(format string, args ...any) { cfg.logf("warning: "+format, args...) },
 	}
 	hashed, err := hasher.Hash(targets, hasher.Options{
-		Files: diskFallback{files: files, root: dir},
+		Files: fileSource{files: files, co: co},
 		Repos: resolver,
 	})
 	if err != nil {
@@ -155,9 +155,12 @@ func Hash(ctx context.Context, dir string, cfg Config) (*snapshot.Snapshot, erro
 
 	seedHashes := map[string]string{snapshot.BazelReleaseSeed: info["release"]}
 	for _, p := range files.Paths() {
-		if seeds.Match(p) {
-			seedHashes[p], _ = files.Blob(p)
+		if wp := co.WorkspacePath(p); seeds.Match(wp) {
+			seedHashes[wp], _ = files.Blob(p)
 		}
+	}
+	if co.Prefix != "" {
+		hashRootSeeds(co, seeds, seedHashes)
 	}
 	cfg.logf("hashed %d targets at %s in %s", len(hashed), short(commit), time.Since(start).Round(time.Millisecond))
 	return &snapshot.Snapshot{
@@ -172,19 +175,46 @@ func Hash(ctx context.Context, dir string, cfg Config) (*snapshot.Snapshot, erro
 	}, nil
 }
 
-// diskFallback serves file hashes from git, and falls back to reading the
-// disk for files git ignores but a target still names.
-type diskFallback struct {
+// hashRootSeeds adds the seeds that sit in the workspace root outside the
+// repository, such as a .bazelrc or a MODULE.bazel symlink into the
+// repository, hashed from disk with symlinks followed. Only the root
+// directory is scanned: the rest of the workspace belongs to other
+// repositories, which are the same live files on both sides of a comparison.
+func hashRootSeeds(co Checkout, seeds glob.Set, hashes map[string]string) {
+	entries, err := os.ReadDir(co.Root)
+	if err != nil {
+		return
+	}
+	repoDir, _, _ := strings.Cut(co.Prefix, "/")
+	for _, e := range entries {
+		name := e.Name()
+		if name == repoDir || !seeds.Match(name) {
+			continue
+		}
+		if h, ok := git.HashPath(filepath.Join(co.Root, name)); ok {
+			hashes[name] = h
+		}
+	}
+}
+
+// fileSource serves the hashes of the workspace-relative paths that targets
+// name. Files in the repository come from git, falling back to the disk for
+// files git ignores but a target still names; files outside the repository
+// (in a workspace above it) are read from disk.
+type fileSource struct {
 	files *git.Files
-	root  string
+	co    Checkout
 }
 
 // FileHash implements hasher.FileSource.
-func (d diskFallback) FileHash(path string) (string, bool) {
-	if h, ok := d.files.FileHash(path); ok {
-		return h, true
+func (f fileSource) FileHash(path string) (string, bool) {
+	if rp, ok := f.co.RepoPath(path); ok {
+		if h, ok := f.files.FileHash(rp); ok {
+			return h, true
+		}
+		return git.HashPath(filepath.Join(f.co.GitDir, filepath.FromSlash(rp)))
 	}
-	return git.HashPath(filepath.Join(d.root, filepath.FromSlash(path)))
+	return git.HashPath(filepath.Join(f.co.Root, filepath.FromSlash(path)))
 }
 
 // short abbreviates a commit SHA for log messages.
@@ -203,10 +233,14 @@ func dirtySuffix(dirty bool) string {
 	return ""
 }
 
-// Worktrees hands out reusable git worktrees under Root, one per name.
+// Worktrees hands out reusable git worktrees under Root, one per name. When
+// Layout puts the repository below its Bazel workspace, each worktree sits at
+// the same prefix inside a mirror of that workspace, so Bazel runs there just
+// as it does in the real one.
 type Worktrees struct {
-	Repo git.Repo
-	Root string
+	Repo   git.Repo
+	Root   string
+	Layout Layout
 }
 
 // DefaultWorktreeRoot returns a per-repository directory in the user cache, so
@@ -221,18 +255,38 @@ func DefaultWorktreeRoot(topLevel string) (string, error) {
 	return filepath.Join(cache, "bazel-diff", "worktrees", hex.EncodeToString(sum[:])[:12]), nil
 }
 
-// Checkout checks commit out in the worktree called name and returns its path.
-func (w Worktrees) Checkout(ctx context.Context, name, commit string) (string, error) {
-	dir := filepath.Join(w.Root, name)
-	return dir, w.Repo.Worktree(ctx, dir, commit)
+// Checkout checks commit out in the worktree called name.
+func (w Worktrees) Checkout(ctx context.Context, name, commit string) (Checkout, error) {
+	co, err := w.prepare(name)
+	if err != nil {
+		return Checkout{}, err
+	}
+	return co, w.Repo.Worktree(ctx, co.GitDir, commit)
 }
 
-// Merge merges heads into base in the worktree called name and returns its
-// path and the merge commit.
-func (w Worktrees) Merge(ctx context.Context, name, base string, heads []string) (string, string, error) {
-	dir := filepath.Join(w.Root, name)
-	commit, err := w.Repo.Merge(ctx, dir, base, heads)
-	return dir, commit, err
+// Merge merges heads into base in the worktree called name and returns the
+// checkout and the merge commit.
+func (w Worktrees) Merge(ctx context.Context, name, base string, heads []string) (Checkout, string, error) {
+	co, err := w.prepare(name)
+	if err != nil {
+		return Checkout{}, "", err
+	}
+	commit, err := w.Repo.Merge(ctx, co.GitDir, base, heads)
+	return co, commit, err
+}
+
+// prepare works out where the worktree called name goes and, for a
+// repository below its workspace, refreshes the mirror around it.
+func (w Worktrees) prepare(name string) (Checkout, error) {
+	root := filepath.Join(w.Root, name)
+	if w.Layout.Prefix == "" {
+		return Checkout{GitDir: root, Layout: Layout{Root: root}}, nil
+	}
+	co := Checkout{
+		GitDir: filepath.Join(root, filepath.FromSlash(w.Layout.Prefix)),
+		Layout: Layout{Root: root, Prefix: w.Layout.Prefix},
+	}
+	return co, mirror(w.Layout.Root, root, w.Layout.Prefix)
 }
 
 // SafeName turns a git ref into something usable as a directory name.

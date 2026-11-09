@@ -63,12 +63,12 @@ func runQueue(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	dir, mergeCommit, err := s.worktrees.Merge(ctx, "merge", baseCommit, prCommits)
+	co, mergeCommit, err := s.worktrees.Merge(ctx, "merge", baseCommit, prCommits)
 	if err != nil {
 		return err
 	}
 	logf("merged %d pull requests into %s as %s", len(prs), short(baseCommit), short(mergeCommit))
-	head, err := s.hashDir(ctx, dir, outPath(*outDir, report.HeadSnapshotFile), false)
+	head, err := s.hashDir(ctx, co, outPath(*outDir, report.HeadSnapshotFile), false)
 	if err != nil {
 		return err
 	}
@@ -84,13 +84,13 @@ func runQueue(ctx context.Context, args []string) error {
 	// whose own selection contains it.
 	attribution := make(map[string][]string)
 	for i, pr := range prs {
-		dir, commit, err := s.worktrees.Merge(ctx, "merge", baseCommit, []string{prCommits[i]})
+		co, commit, err := s.worktrees.Merge(ctx, "merge", baseCommit, []string{prCommits[i]})
 		if err != nil {
 			return err
 		}
 		prDir := filepath.Join(*outDir, "prs", workspace.SafeName(pr))
 		logf("hashing %s alone (merge %s)", pr, short(commit))
-		single, err := s.hashDir(ctx, dir, outPath(prDir, report.HeadSnapshotFile), false)
+		single, err := s.hashDir(ctx, co, outPath(prDir, report.HeadSnapshotFile), false)
 		if err != nil {
 			return err
 		}

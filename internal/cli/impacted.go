@@ -84,7 +84,7 @@ func (c *changeFlags) selectChange(ctx context.Context) (classify.Selection, err
 	if c.outDir == "" {
 		// At the root, whichever directory the command runs from, like
 		// Bazel's own bazel-* symlinks.
-		c.outDir = filepath.Join(s.top, defaultOutDir)
+		c.outDir = filepath.Join(s.layout.Root, defaultOutDir)
 	}
 	inPlace := c.headRev == ""
 	headCommit, err := s.resolve(ctx, "HEAD")
@@ -175,6 +175,10 @@ func checkFastPath(ctx context.Context, s *snapshotter, base *snapshot.Snapshot,
 	changes, err := s.repo.ChangedFiles(ctx, baseCommit, headCommit)
 	if err != nil {
 		return false, "", err
+	}
+	// git reports repository paths; targets and seeds use workspace paths.
+	for i := range changes {
+		changes[i].Path = s.layout.WorkspacePath(changes[i].Path)
 	}
 	skip, reason := fastpath.Check(changes, base, allow, seeds)
 	return skip, reason, nil

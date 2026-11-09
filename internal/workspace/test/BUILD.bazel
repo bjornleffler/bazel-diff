@@ -1,0 +1,13 @@
+# Copyright 2026 Bjorn Leffler.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "test_test",
+    srcs = ["layout_test.go"],
+    deps = [
+        "//internal/git",
+        "//internal/workspace",
+    ],
+)
