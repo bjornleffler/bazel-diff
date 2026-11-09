@@ -129,9 +129,10 @@ bazel-diff test //...                       # build, then run the affected tests
 ```
 
 By default the change is the working tree compared with `HEAD`. `--base`
-compares with the merge base of a revision instead. Patterns must be absolute
-(`//...`, `//pkg/...`, `//pkg:all`, `//pkg:name`). A leading `-` excludes
-targets, as in Bazel. Put `bazel-diff` flags before the first pattern.
+compares with the merge base of a revision instead. Patterns work as in Bazel:
+absolute (`//...`, `//pkg/...`, `//pkg:all`, `//pkg:name`) or relative to the
+current directory (`...`, `sub/...`, `:all`). A leading `-` excludes targets.
+Put `bazel-diff` flags before the first pattern.
 
 The command prints the affected targets on standard output, one per line, and
 its progress on standard error. It then builds them, tests included, with
@@ -152,8 +153,10 @@ bazelisk downloads it automatically.
 
 ### Output files
 
-`impacted`, `queue`, `diff` and `build` write these files to `--out-dir` (default
-`bazel-diff-out`):
+`impacted`, `queue`, `diff`, `build`, `test` and `analyse` write these files to
+`--out-dir`. The default is `bazel-diff-out`: at the workspace root for
+`impacted`, `build`, `test` and `analyse`, whichever directory they run from,
+and in the current directory for `queue` and `diff`:
 
 | File | Content |
 |---|---|

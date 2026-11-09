@@ -90,3 +90,31 @@ func TestFilter(t *testing.T) {
 		}
 	}
 }
+
+// TestResolve turns relative patterns into absolute ones, as Bazel does.
+func TestResolve(t *testing.T) {
+	cases := []struct {
+		in, dir, want string
+		relative      bool
+	}{
+		{"...", "", "//...", true},
+		{":all", "", "//:all", true},
+		{"foo/...", "", "//foo/...", true},
+		{"...", "internal", "//internal/...", true},
+		{":all", "internal/cli", "//internal/cli:all", true},
+		{"cli:cli", "internal", "//internal/cli:cli", true},
+		{"label/...:all", "internal", "//internal/label/...:all", true},
+		{"-gen/...", "src", "-//src/gen/...", true},
+		{"//a/...", "internal", "//a/...", false},
+		{"-//a/...", "internal", "-//a/...", false},
+		{"@@ext+//a:b", "internal", "@@ext+//a:b", false},
+	}
+	for _, c := range cases {
+		if got := label.Resolve(c.in, c.dir); got != c.want {
+			t.Errorf("Resolve(%q, %q) = %q, want %q", c.in, c.dir, got, c.want)
+		}
+		if got := label.IsRelative(c.in); got != c.relative {
+			t.Errorf("IsRelative(%q) = %t, want %t", c.in, got, c.relative)
+		}
+	}
+}

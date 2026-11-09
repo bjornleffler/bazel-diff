@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -19,6 +20,10 @@ import (
 	"github.com/bjornleffler/bazel-diff/internal/report"
 	"github.com/bjornleffler/bazel-diff/internal/snapshot"
 )
+
+// defaultOutDir is the output directory, at the workspace root, when
+// --out-dir is not given.
+const defaultOutDir = "bazel-diff-out"
 
 // changeFlags describe one change: the revisions to compare and how to turn
 // the difference into a selection. The impacted and build commands share them.
@@ -48,7 +53,7 @@ func (c *changeFlags) register(fs *flag.FlagSet, defaultBase string) {
 	fs.StringVar(&c.headRev, "head", "", "head revision; default: the working tree as it is on disk")
 	fs.BoolVar(&c.noMergeBase, "no-merge-base", false, "compare with --base itself instead of its merge base with head")
 	fs.BoolVar(&c.parallel, "parallel", false, "on a cache miss, hash base and head at the same time (two Bazel servers)")
-	fs.StringVar(&c.outDir, "out-dir", "bazel-diff-out", "directory for the selection files")
+	fs.StringVar(&c.outDir, "out-dir", "", "directory for the selection files (default: "+defaultOutDir+" at the workspace root)")
 	fs.Var(&c.fastPatterns, "fast-path", "glob of files whose modification alone never needs a build, e.g. '**/*.md'; repeatable")
 }
 
@@ -75,6 +80,11 @@ func (c *changeFlags) selectChange(ctx context.Context) (classify.Selection, err
 	s, err := newSnapshotter(ctx, &c.rf, c.hf.config())
 	if err != nil {
 		return classify.Selection{}, err
+	}
+	if c.outDir == "" {
+		// At the root, whichever directory the command runs from, like
+		// Bazel's own bazel-* symlinks.
+		c.outDir = filepath.Join(s.top, defaultOutDir)
 	}
 	inPlace := c.headRev == ""
 	headCommit, err := s.resolve(ctx, "HEAD")

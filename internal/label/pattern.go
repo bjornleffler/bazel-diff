@@ -29,8 +29,39 @@ type Pattern struct {
 	text string
 }
 
-// ParsePattern parses one target pattern. Relative patterns and patterns in
-// external repositories are rejected.
+// Resolve turns a pattern relative to the package dir (the current directory
+// relative to the workspace root; "" at the root) into an absolute one, as
+// Bazel does: "..." becomes "//dir/...", ":all" becomes "//dir:all" and
+// "sub:name" becomes "//dir/sub:name". A leading "-" is kept. Absolute
+// patterns and patterns in other repositories are returned unchanged.
+func Resolve(s, dir string) string {
+	if !IsRelative(s) {
+		return s
+	}
+	sign, rest := "", s
+	if strings.HasPrefix(rest, "-") {
+		sign, rest = "-", rest[1:]
+	}
+	switch {
+	case dir == "":
+		return sign + "//" + rest
+	case strings.HasPrefix(rest, ":"):
+		return sign + "//" + dir + rest
+	default:
+		return sign + "//" + dir + "/" + rest
+	}
+}
+
+// IsRelative reports whether a pattern, with or without a leading "-",
+// depends on the current directory: it starts neither with "//" nor "@".
+func IsRelative(s string) bool {
+	rest := strings.TrimPrefix(s, "-")
+	return !strings.HasPrefix(rest, "//") && !strings.HasPrefix(rest, "@")
+}
+
+// ParsePattern parses one absolute target pattern; use Resolve first for
+// relative ones. Relative patterns and patterns in external repositories are
+// rejected.
 func ParsePattern(s string) (Pattern, error) {
 	p := Pattern{text: s}
 	rest := s
