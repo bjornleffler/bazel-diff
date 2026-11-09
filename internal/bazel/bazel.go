@@ -28,12 +28,16 @@ const queryExitPartial = 3
 // canonical labels ("@@repo+//pkg:name") that do not depend on repository
 // mappings, and --noproto:flatten_selects keeps select() structure, so a change
 // to which branch holds a value still changes the rule's hash.
+// --noshow_progress drops Bazel's progress lines ("Loading: ...", "no actions
+// running"), which bazel-diff's own log already covers; warnings and errors
+// still appear.
 var QueryFlags = []string{
 	"--output=streamed_proto",
 	"--consistent_labels",
 	"--noproto:flatten_selects",
 	"--order_output=no",
 	"--tool_tag=bazel-diff",
+	"--noshow_progress",
 }
 
 // Runner invokes Bazel in one workspace.
@@ -109,6 +113,12 @@ func (r Runner) Query(ctx context.Context, expr string, extraFlags []string, kee
 	}
 	args = append(args, "--", expr)
 	cmd := r.command(ctx, args...)
+	stderr := cmd.Stderr
+	// With --output=streamed_proto Bazel ends with a bare newline on stderr,
+	// which would show up as an empty line in bazel-diff's log.
+	filtered := &blankLineFilter{w: stderr}
+	cmd.Stderr = filtered
+	defer filtered.flush()
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -128,13 +138,48 @@ func (r Runner) Query(ctx context.Context, expr string, extraFlags []string, kee
 	}
 	var exitErr *exec.ExitError
 	if errors.As(waitErr, &exitErr) && keepGoing && exitErr.ExitCode() == queryExitPartial {
-		fmt.Fprintln(cmd.Stderr, "bazel-diff: warning: bazel query returned a partial result (--keep_going)")
+		fmt.Fprintln(stderr, "bazel-diff: warning: bazel query returned a partial result (--keep_going)")
 		return nil
 	}
 	if waitErr != nil {
 		return fmt.Errorf("bazel query %q in %s: %w", expr, r.Dir, waitErr)
 	}
 	return nil
+}
+
+// blankLineFilter passes writes through to w line by line, dropping lines
+// that are empty or hold only whitespace.
+type blankLineFilter struct {
+	w       io.Writer
+	pending []byte
+}
+
+// Write implements io.Writer. Complete lines are forwarded at once; a
+// trailing partial line waits for its newline or for flush.
+func (f *blankLineFilter) Write(p []byte) (int, error) {
+	f.pending = append(f.pending, p...)
+	for {
+		i := bytes.IndexByte(f.pending, '\n')
+		if i < 0 {
+			return len(p), nil
+		}
+		line := f.pending[:i+1]
+		f.pending = f.pending[i+1:]
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		if _, err := f.w.Write(line); err != nil {
+			return len(p), err
+		}
+	}
+}
+
+// flush forwards a final line that had no newline, unless it is blank.
+func (f *blankLineFilter) flush() {
+	if len(bytes.TrimSpace(f.pending)) > 0 {
+		f.w.Write(f.pending)
+	}
+	f.pending = nil
 }
 
 // readTargets decodes length-delimited Target messages until end of input.
