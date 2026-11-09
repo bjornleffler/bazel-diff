@@ -71,6 +71,12 @@ func (r Runner) Info(ctx context.Context, keys ...string) (map[string]string, er
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {
+		// Some launchers, such as Homebrew's bazel, print their errors (for
+		// example a .bazelversion that is not installed) to stdout, which
+		// would otherwise be lost here.
+		if out := strings.TrimSpace(stdout.String()); out != "" {
+			return nil, fmt.Errorf("bazel info in %s: %w:\n%s", r.Dir, err, out)
+		}
 		return nil, fmt.Errorf("bazel info in %s: %w", r.Dir, err)
 	}
 	values := make(map[string]string)
