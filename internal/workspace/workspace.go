@@ -243,16 +243,17 @@ type Worktrees struct {
 	Layout Layout
 }
 
-// DefaultWorktreeRoot returns a per-repository directory in the user cache, so
-// worktrees, and the Bazel output bases keyed on their paths, survive between
-// runs on the same agent.
-func DefaultWorktreeRoot(topLevel string) (string, error) {
-	cache, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
+// DefaultWorktreeBase is the directory under which DefaultWorktreeRoot keeps
+// each repository's worktrees. It is the same on macOS, Linux and CI agents,
+// unlike the user cache directory, which CI agents often lack or wipe.
+const DefaultWorktreeBase = "/tmp/bazel-diff"
+
+// DefaultWorktreeRoot returns a per-repository directory under
+// DefaultWorktreeBase, so worktrees, and the Bazel output bases keyed on
+// their paths, survive between runs on the same agent.
+func DefaultWorktreeRoot(topLevel string) string {
 	sum := sha256.Sum256([]byte(topLevel))
-	return filepath.Join(cache, "bazel-diff", "worktrees", hex.EncodeToString(sum[:])[:12]), nil
+	return filepath.Join(DefaultWorktreeBase, "worktrees", hex.EncodeToString(sum[:])[:12])
 }
 
 // Checkout checks commit out in the worktree called name.

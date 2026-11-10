@@ -65,7 +65,9 @@ A pipeline on `main` hashes every commit and uploads the snapshot, keyed by
 commit and settings fingerprint, to a directory, `gs://` or `s3://`. A pull
 request pipeline then needs only one `bazel query`, for its own head. On a
 cache miss the base is hashed in a git worktree that persists between runs,
-so its Bazel server stays warm.
+so its Bazel server stays warm. Worktrees live under
+`/tmp/bazel-diff/worktrees/`, one directory per repository path, on macOS,
+Linux and CI agents alike; `--worktree-root` puts them elsewhere.
 
 ## Building
 

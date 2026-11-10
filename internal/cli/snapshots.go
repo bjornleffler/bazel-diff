@@ -31,7 +31,7 @@ func (r *repoFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&r.workspace, "workspace", ".", "directory inside the git checkout of the Bazel workspace")
 	fs.StringVar(&r.cacheURL, "cache", "", "snapshot cache: a directory, gs://bucket/prefix or s3://bucket/prefix")
 	fs.BoolVar(&r.upload, "upload", false, "upload snapshots this run computes for clean commits to --cache")
-	fs.StringVar(&r.worktreeRoot, "worktree-root", "", "where to keep worktrees for other revisions (default: user cache dir)")
+	fs.StringVar(&r.worktreeRoot, "worktree-root", "", "where to keep worktrees for other revisions (default: /tmp/bazel-diff/worktrees/<hash of the repository path>)")
 }
 
 // snapshotter hands out snapshots for one repository and configuration.
@@ -70,9 +70,7 @@ func newSnapshotter(ctx context.Context, rf *repoFlags, cfg workspace.Config) (*
 	}
 	root := rf.worktreeRoot
 	if root == "" {
-		if root, err = workspace.DefaultWorktreeRoot(top); err != nil {
-			return nil, err
-		}
+		root = workspace.DefaultWorktreeRoot(top)
 	}
 	s.worktrees = workspace.Worktrees{Repo: s.repo, Root: root, Layout: layout}
 	return s, nil
