@@ -9,6 +9,17 @@ target at the base and head revisions, then compare the hashes.
 Requirements: Bazel 8.4+ with bzlmod (WORKSPACE is not supported), git, and a
 Linux or macOS CI agent.
 
+## Quick start
+
+1. Install bazel-diff
+   - bazel build //cmd/bazel-diff
+   - install -m 0755 bazel-bin/cmd/bazel-diff/bazel-diff_/bazel-diff ~/bin/
+
+2. Analyse, build and test Bazel targets that have changed.
+   - bazel-diff analyse ...
+   - bazel-diff build ...
+   - bazel-diff test ...
+
 ## How it works
 
 1. **Query.** Run `bazel query 'deps(//...:all-targets)' --output=streamed_proto
@@ -77,8 +88,18 @@ bazel test //...
 bazel run //cmd/bazel-diff -- version
 ```
 
-The binary is `//cmd/bazel-diff`. Copy it into the CI image (it is a static
-Go binary) or onto `PATH`.
+The binary is `//cmd/bazel-diff`, built at
+`bazel-bin/cmd/bazel-diff/bazel-diff_/bazel-diff`. It is a static Go binary,
+so it copies into any CI image. To put it on `PATH`:
+
+```bash
+bazel build //cmd/bazel-diff
+install -m 0755 bazel-bin/cmd/bazel-diff/bazel-diff_/bazel-diff ~/bin/
+```
+
+Use `install` rather than `cp`: Bazel's outputs are read-only, so `cp` cannot
+overwrite an earlier copy, and on macOS overwriting a binary in place can get
+it killed on its next run. `install` replaces the file instead.
 
 ## Commands
 
