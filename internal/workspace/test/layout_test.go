@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bjornleffler/bazel-diff/internal/git"
@@ -174,4 +175,112 @@ func gitHead(t *testing.T, dir string) string {
 		t.Fatal(err)
 	}
 	return string(out[:len(out)-1])
+}
+
+// TestMirroredLocalReplace checks that a directory the base revision's go.mod
+// replaces a module with is a real copy in the mirror, not a symlink.
+// Gazelle copies such a module with filepath.Walk, which does not enter a
+// symlinked root, so a symlink gave Gazelle an empty repository. The copy
+// must leave out .git, follow later changes to the live directory, never
+// write through to it, and turn back into a symlink once no revision
+// replaces anything with it.
+func TestMirroredLocalReplace(t *testing.T) {
+	ctx := context.Background()
+	ws := t.TempDir()
+	repoDir := filepath.Join(ws, "repo")
+	write(t, filepath.Join(repoDir, "MODULE.bazel.repo"), "module\n")
+	write(t, filepath.Join(repoDir, "go", "go.mod"), `module example.com/repo
+
+replace (
+	example.com/dep => ../../dep // the live sibling checkout
+	example.com/other v1.0.0 => example.com/fork v1.0.1
+	example.com/inside => ./inside
+	example.com/root => ../..
+)
+`)
+	run(t, repoDir, "init", "-q")
+	run(t, repoDir, "add", "-A")
+	run(t, repoDir, "commit", "-qm", "replace")
+	withReplace := gitHead(t, repoDir)
+	write(t, filepath.Join(repoDir, "go", "go.mod"), "module example.com/repo\n")
+	run(t, repoDir, "commit", "-qam", "no replace")
+	withoutReplace := gitHead(t, repoDir)
+
+	os.Symlink("repo/MODULE.bazel.repo", filepath.Join(ws, "MODULE.bazel"))
+	dep := filepath.Join(ws, "dep")
+	write(t, filepath.Join(dep, "go.mod"), "module example.com/dep\n")
+	write(t, filepath.Join(dep, "util", "codec", "codec.go"), "package codec\n")
+	write(t, filepath.Join(dep, "stale.go"), "package dep\n")
+	write(t, filepath.Join(dep, ".git", "HEAD"), "ref: refs/heads/master\n")
+	os.Symlink("util", filepath.Join(dep, "link"))
+	write(t, filepath.Join(ws, "unrelated", "BUILD"), "")
+
+	w := workspace.Worktrees{Repo: git.Repo{Dir: repoDir}, Root: t.TempDir(), Layout: workspace.FindLayout(repoDir)}
+	co, err := w.Checkout(ctx, "base", withReplace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mirrored := filepath.Join(co.Root, "dep")
+	if fi, err := os.Lstat(mirrored); err != nil || !fi.IsDir() {
+		t.Fatalf("replaced directory should be a real directory in the mirror (%v, %v)", fi, err)
+	}
+	// What Gazelle does: walk the module root and see its files.
+	var walked []string
+	filepath.Walk(mirrored, func(path string, info os.FileInfo, err error) error {
+		if err == nil && info.Mode().IsRegular() {
+			rel, _ := filepath.Rel(mirrored, path)
+			walked = append(walked, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if want := "go.mod stale.go util/codec/codec.go"; strings.Join(walked, " ") != want {
+		t.Errorf("walking the mirrored module found %q, want %q", walked, want)
+	}
+	if target, err := os.Readlink(filepath.Join(mirrored, "link")); err != nil || target != "util" {
+		t.Errorf("symlink inside the module should be copied as it is: %q, %v", target, err)
+	}
+	if fi, err := os.Lstat(filepath.Join(co.Root, "unrelated")); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("an unreplaced directory should still be a symlink (%v)", err)
+	}
+	if fi, err := os.Lstat(filepath.Join(co.Root, "MODULE.bazel")); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("a replace of the workspace root must not copy the workspace (%v)", err)
+	}
+
+	// Writing into the copy, as Gazelle or Bazel might, leaves the live file.
+	copied := filepath.Join(mirrored, "util", "codec", "codec.go")
+	write(t, copied, "package changed\n")
+	if got := read(filepath.Join(dep, "util", "codec", "codec.go")); got != "package codec\n" {
+		t.Errorf("writing the copy changed the live file to %q", got)
+	}
+
+	// The next run syncs the copy with the live directory.
+	before, _ := os.Stat(filepath.Join(mirrored, "go.mod"))
+	os.Remove(filepath.Join(dep, "stale.go"))
+	write(t, filepath.Join(dep, "added.go"), "package dep\n")
+	if _, err := w.Checkout(ctx, "base", withReplace); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(copied); got != "package codec\n" {
+		t.Errorf("changed copy not restored from the live file: %q", got)
+	}
+	if read(filepath.Join(mirrored, "added.go")) != "package dep\n" {
+		t.Error("file added to the live directory missing from the copy")
+	}
+	if _, err := os.Lstat(filepath.Join(mirrored, "stale.go")); err == nil {
+		t.Error("file removed from the live directory still in the copy")
+	}
+	if after, err := os.Stat(filepath.Join(mirrored, "go.mod")); err != nil || !os.SameFile(before, after) {
+		t.Error("an unchanged file should be left in place, not copied again")
+	}
+
+	// A revision without the replace mirrors the directory as a symlink again.
+	if _, err := w.Checkout(ctx, "base", withoutReplace); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(mirrored); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("without the replace the directory should be a symlink (%v)", err)
+	}
+	if read(filepath.Join(dep, "go.mod")) != "module example.com/dep\n" {
+		t.Error("removing the copy touched the live directory")
+	}
 }

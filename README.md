@@ -170,6 +170,14 @@ root (the nearest directory with `MODULE.bazel`, `REPO.bazel`, `WORKSPACE` or
   (such as `MODULE.bazel -> bucketfs/MODULE.bazel.bucketfs`) are copied as
   they are so they resolve into the base checkout, and `MODULE.bazel.lock` is
   copied so Bazel's rewrite of it never touches the real one.
+- A directory that one of the base revision's `go.mod` or `go.work` files
+  replaces a module with, such as a sibling checkout named by
+  `replace example.com/dep => ../../dep`, is a real copy in the mirror
+  rather than a symlink (version control directories left out, refreshed
+  incrementally on each run). Gazelle copies such a module with
+  `filepath.Walk`, which does not enter a symlinked root, so a symlink would
+  give an empty external repository and `BUILD file not found` errors for
+  every package in the module.
 - The default query of `impacted`, `hash` and `queue` covers the repository
   and its dependencies, `deps(//bucketfs/...:all-targets)`, not the whole
   workspace, whose other repositories may not even load. `build`, `test` and

@@ -257,36 +257,49 @@ func DefaultWorktreeRoot(topLevel string) (string, error) {
 
 // Checkout checks commit out in the worktree called name.
 func (w Worktrees) Checkout(ctx context.Context, name, commit string) (Checkout, error) {
-	co, err := w.prepare(name)
-	if err != nil {
-		return Checkout{}, err
+	co := w.place(name)
+	if err := w.Repo.Worktree(ctx, co.GitDir, commit); err != nil {
+		return co, err
 	}
-	return co, w.Repo.Worktree(ctx, co.GitDir, commit)
+	return co, w.refreshMirror(co)
 }
 
 // Merge merges heads into base in the worktree called name and returns the
 // checkout and the merge commit.
 func (w Worktrees) Merge(ctx context.Context, name, base string, heads []string) (Checkout, string, error) {
-	co, err := w.prepare(name)
-	if err != nil {
-		return Checkout{}, "", err
-	}
+	co := w.place(name)
 	commit, err := w.Repo.Merge(ctx, co.GitDir, base, heads)
-	return co, commit, err
+	if err != nil {
+		return co, commit, err
+	}
+	return co, commit, w.refreshMirror(co)
 }
 
-// prepare works out where the worktree called name goes and, for a
-// repository below its workspace, refreshes the mirror around it.
-func (w Worktrees) prepare(name string) (Checkout, error) {
+// place works out where the worktree called name goes.
+func (w Worktrees) place(name string) Checkout {
 	root := filepath.Join(w.Root, name)
 	if w.Layout.Prefix == "" {
-		return Checkout{GitDir: root, Layout: Layout{Root: root}}, nil
+		return Checkout{GitDir: root, Layout: Layout{Root: root}}
 	}
-	co := Checkout{
+	return Checkout{
 		GitDir: filepath.Join(root, filepath.FromSlash(w.Layout.Prefix)),
 		Layout: Layout{Root: root, Prefix: w.Layout.Prefix},
 	}
-	return co, mirror(w.Layout.Root, root, w.Layout.Prefix)
+}
+
+// refreshMirror rebuilds the mirror of the workspace around a checkout of a
+// repository below its workspace; there is nothing to do when the checkout is
+// the workspace. It runs after the checkout because the checked-out revision
+// decides which workspace directories its go.mod files replace modules with.
+func (w Worktrees) refreshMirror(co Checkout) error {
+	if co.Prefix == "" {
+		return nil
+	}
+	copies, err := localReplaceTargets(w.Layout.Root, co)
+	if err != nil {
+		return err
+	}
+	return mirror(w.Layout.Root, co.Root, co.Prefix, copies)
 }
 
 // SafeName turns a git ref into something usable as a directory name.

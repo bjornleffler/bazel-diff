@@ -92,23 +92,72 @@ func (l Layout) RepoPath(workspacePath string) (string, bool) {
 // convenience symlinks (bazel-* symlinks) at the root are left out, and a plain
 // MODULE.bazel.lock is copied rather than linked, because Bazel rewrites it
 // and must not rewrite the real one with the base revision's resolution.
+//
+// copies lists workspace-relative directories (slash form) that must be real
+// copies rather than symlinks: the targets of the checkout's local go.mod
+// replace directives. Gazelle copies such a module with filepath.Walk, which
+// does not descend into a root that is a symlink, so a symlinked target
+// yields an empty external repository. Directories on the way to a copy are
+// real directories of symlinks, like those on the way to the checkout.
+//
 // Each call rebuilds the mirror, so entries added to or removed from src
-// since the last run are picked up.
-func mirror(src, dst, prefix string) error {
-	parts := strings.Split(prefix, "/")
-	for i, next := range parts {
-		sub := filepath.FromSlash(strings.Join(parts[:i], "/"))
-		if err := mirrorDir(filepath.Join(src, sub), filepath.Join(dst, sub), next, i == 0); err != nil {
+// since the last run are picked up. Copies are synced in place, so unchanged
+// files keep their timestamps and Bazel sees an unchanged tree.
+func mirror(src, dst, prefix string, copies []string) error {
+	root := &mirrorNode{}
+	root.insert(prefix, &mirrorNode{checkout: true})
+	for _, c := range copies {
+		root.insert(c, &mirrorNode{copy: true})
+	}
+	return root.build(src, dst, true)
+}
+
+// mirrorNode says how one directory of the mirror is filled. A node is the
+// checkout (left alone), a copy (synced from the source), or a real
+// directory whose children, where they are not listed, become symlinks.
+type mirrorNode struct {
+	checkout bool
+	copy     bool
+	children map[string]*mirrorNode
+}
+
+// insert adds leaf at the slash-separated path below n. A copy swallows any
+// path below it, and the checkout is never replaced: the callers keep copies
+// out of the checkout, and drop those that contain it.
+func (n *mirrorNode) insert(path string, leaf *mirrorNode) {
+	parts := strings.Split(path, "/")
+	for i, name := range parts {
+		if n.checkout || n.copy {
+			return
+		}
+		if n.children == nil {
+			n.children = map[string]*mirrorNode{}
+		}
+		child := n.children[name]
+		if i == len(parts)-1 {
+			if child == nil || !child.checkout {
+				n.children[name] = leaf
+			}
+			return
+		}
+		if child == nil {
+			child = &mirrorNode{}
+			n.children[name] = child
+		}
+		n = child
+	}
+}
+
+// build fills the directory to from from according to n. root is true at
+// the workspace root, where Bazel's convenience symlinks are left out and
+// the lock file is copied.
+func (n *mirrorNode) build(from, to string, root bool) error {
+	if fi, err := os.Lstat(to); err == nil && !fi.IsDir() {
+		// A symlink from an earlier mirror where this was not a directory.
+		if err := os.Remove(to); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-// mirrorDir fills the directory to with entries for those of from, except
-// skip (the next directory on the way to the checkout) and, at the workspace
-// root, Bazel's convenience symlinks.
-func mirrorDir(from, to, skip string, root bool) error {
 	if err := os.MkdirAll(to, 0o755); err != nil {
 		return err
 	}
@@ -118,8 +167,9 @@ func mirrorDir(from, to, skip string, root bool) error {
 	}
 	for _, e := range old {
 		// Everything here is ours or Bazel's (its lock file and convenience
-		// symlinks), except the directory on the way to the checkout.
-		if e.Name() == skip {
+		// symlinks). Keep the checkout, and keep real directories that are
+		// still copies or on the way to one, so they are refreshed in place.
+		if child := n.children[e.Name()]; child != nil && (child.checkout || e.IsDir()) {
 			continue
 		}
 		if err := os.RemoveAll(filepath.Join(to, e.Name())); err != nil {
@@ -132,13 +182,27 @@ func mirrorDir(from, to, skip string, root bool) error {
 	}
 	for _, e := range entries {
 		name := e.Name()
+		target := filepath.Join(from, name)
+		if child := n.children[name]; child != nil {
+			var err error
+			switch {
+			case child.checkout:
+			case child.copy:
+				err = syncTree(target, filepath.Join(to, name))
+			default:
+				err = child.build(target, filepath.Join(to, name), false)
+			}
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		isLink := e.Type()&os.ModeSymlink != 0
 		// Convenience symlinks are symlinks; a real directory such as a local
 		// bazel-registry is part of the workspace and must be mirrored.
-		if name == skip || (root && isLink && strings.HasPrefix(name, "bazel-")) {
+		if root && isLink && strings.HasPrefix(name, "bazel-") {
 			continue
 		}
-		target := filepath.Join(from, name)
 		if root && name == lockFile && e.Type().IsRegular() {
 			if err := copyFile(target, filepath.Join(to, name)); err != nil {
 				return err
